@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass
 from typing import Annotated
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import NoDecode
 
 from common.config import BaseServiceSettings
@@ -17,6 +17,7 @@ class ServiceRoute:
     # Первые сегменты пути после /api/v1, которые обслуживает сервис
     prefixes: tuple[str, ...]
     health_path: str = "/health"
+    timeout: float | None = None
 
 
 class Settings(BaseServiceSettings):
@@ -26,6 +27,8 @@ class Settings(BaseServiceSettings):
     # Адреса сервисов внутри docker-сети (для локального запуска — localhost)
     AUTH_SERVICE_URL: str = "http://localhost:8001"
     EXAMPLE_SERVICE_URL: str = "http://localhost:8002"
+    AI_SERVICE_URL: str = "http://localhost:8003"
+    AI_UPSTREAM_TIMEOUT: float = Field(default=65.0, gt=0)
     UPSTREAM_TIMEOUT: float = 10.0
 
     # Список через запятую или JSON-массив. В production обязателен и без "*".
@@ -63,6 +66,7 @@ settings = Settings()
 SERVICES: tuple[ServiceRoute, ...] = (
     ServiceRoute("auth", settings.AUTH_SERVICE_URL, prefixes=("auth", "users")),
     ServiceRoute("example", settings.EXAMPLE_SERVICE_URL, prefixes=("items",)),
+    ServiceRoute("ai", settings.AI_SERVICE_URL, prefixes=("ai",), timeout=settings.AI_UPSTREAM_TIMEOUT),
 )
 
 PREFIX_TO_SERVICE: dict[str, ServiceRoute] = {p: s for s in SERVICES for p in s.prefixes}

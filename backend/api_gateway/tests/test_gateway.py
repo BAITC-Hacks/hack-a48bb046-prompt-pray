@@ -16,7 +16,7 @@ async def test_health_reports_degraded_when_service_down(client, upstream):
     )
     resp = await client.get("/health")
     assert resp.status_code == 503
-    assert resp.json()["services"] == {"auth": "ok", "example": "error"}
+    assert resp.json()["services"] == {"auth": "ok", "example": "error", "ai": "error"}
 
 
 async def test_unknown_route_is_404(client, upstream):

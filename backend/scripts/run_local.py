@@ -53,6 +53,7 @@ class Service:
 SERVICES = (
     Service("auth_service", "AUTH_SERVICE_PORT", 8001, db_key="AUTH", url_var="AUTH_SERVICE_URL"),
     Service("example_service", "EXAMPLE_SERVICE_PORT", 8002, db_key="EXAMPLE", url_var="EXAMPLE_SERVICE_URL"),
+    Service("ai_service", "AI_SERVICE_PORT", 8003, url_var="AI_SERVICE_URL"),
 )
 GATEWAY = Service("api_gateway", "API_GATEWAY_PORT", 8000)
 
@@ -317,7 +318,7 @@ def main() -> None:
             env = dict(base_env)
             if service.db_key:
                 env.update(sqlite_env(service) if backend == "sqlite" else postgres_env(service, config))
-            else:  # gateway: адреса сервисов на localhost
+            elif service == GATEWAY:  # gateway: адреса сервисов на localhost
                 env.update({s.url_var: f"http://127.0.0.1:{ports[s.directory]}" for s in SERVICES})
             proc = spawn(service, ports[service.directory], args.host, env, reload=not args.no_reload, color=color)
             procs.append((service.directory, proc))

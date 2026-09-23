@@ -61,6 +61,7 @@ async def forward(
             url,
             headers=headers,
             content=await request.body(),
+            **({"timeout": service.timeout} if service.timeout is not None else {}),
         )
     except httpx.TimeoutException:
         logger.error("Timeout from %s: %s %s", service.name, request.method, path)
