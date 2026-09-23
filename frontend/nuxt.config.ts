@@ -21,7 +21,17 @@ export default defineNuxtConfig({
     }
   },
 
+  runtimeConfig: {
+    public: {
+      apiBase: 'http://localhost:8000/api/v1'
+    }
+  },
+
   routeRules: {
+    '/account': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
+    '/tasks/**': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
+    '/catalog': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
+    '/api/session/**': { headers: { 'cache-control': 'no-store' } },
     '/docs': { redirect: '/docs/getting-started', prerender: false }
   },
 

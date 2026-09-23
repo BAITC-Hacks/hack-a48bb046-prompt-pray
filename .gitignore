@@ -10,5 +10,6 @@ __pycache__/
 
 # Зависимости
 node_modules/
+.pnpm-store/
 
 .env

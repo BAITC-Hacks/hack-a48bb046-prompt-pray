@@ -1,124 +1,36 @@
 <script setup lang="ts">
 const columns = [{
-  label: 'Resources',
-  children: [{
-    label: 'Help center'
-  }, {
-    label: 'Docs'
-  }, {
-    label: 'Roadmap'
-  }, {
-    label: 'Changelog'
-  }]
+  label: 'Проекты',
+  children: [{ label: 'Открытые задачи', to: '/catalog' }, { label: 'Предложить задачу', to: '/tasks/new' }]
 }, {
-  label: 'Features',
-  children: [{
-    label: 'Affiliates'
-  }, {
-    label: 'Portal'
-  }, {
-    label: 'Jobs'
-  }, {
-    label: 'Sponsors'
-  }]
-}, {
-  label: 'Company',
-  children: [{
-    label: 'About'
-  }, {
-    label: 'Pricing'
-  }, {
-    label: 'Careers'
-  }, {
-    label: 'Blog'
-  }]
+  label: 'Участникам',
+  children: [{ label: 'Войти', to: '/login' }, { label: 'Создать аккаунт', to: '/signup' }]
 }]
-
-const toast = useToast()
-
-const email = ref('')
-const loading = ref(false)
-
-function onSubmit() {
-  loading.value = true
-
-  toast.add({
-    title: 'Subscribed!',
-    description: 'You\'ve been subscribed to our newsletter.'
-  })
-}
 </script>
 
 <template>
-  <USeparator
-    icon="i-simple-icons-nuxtdotjs"
-    class="h-px"
-  />
-
+  <USeparator icon="i-lucide-sparkles" class="h-px" />
   <UFooter :ui="{ top: 'border-b border-default' }">
     <template #top>
-      <UContainer>
+      <UContainer class="py-3">
         <UFooterColumns :columns="columns">
           <template #right>
-            <form @submit.prevent="onSubmit">
-              <UFormField
-                name="email"
-                label="Subscribe to our newsletter"
-                size="lg"
-              >
-                <UInput
-                  v-model="email"
-                  type="email"
-                  class="w-full"
-                  placeholder="Enter your email"
-                >
-                  <template #trailing>
-                    <UButton
-                      type="submit"
-                      size="xs"
-                      color="neutral"
-                      label="Subscribe"
-                    />
-                  </template>
-                </UInput>
-              </UFormField>
-            </form>
+            <p
+              class="max-w-sm text-sm leading-relaxed text-muted"
+            >
+              AI Sana помогает бизнесу и студенческим командам находить проекты для совместной работы.
+            </p>
           </template>
         </UFooterColumns>
       </UContainer>
     </template>
-
     <template #left>
       <p class="text-muted text-sm">
-        Built with Nuxt UI • © {{ new Date().getFullYear() }}
+        AI Sana · Пилотный проект · © {{ new Date().getFullYear() }}
       </p>
     </template>
-
     <template #right>
-      <UButton
-        to="https://go.nuxt.com/discord"
-        target="_blank"
-        icon="i-simple-icons-discord"
-        aria-label="Nuxt on Discord"
-        color="neutral"
-        variant="ghost"
-      />
-      <UButton
-        to="https://go.nuxt.com/x"
-        target="_blank"
-        icon="i-simple-icons-x"
-        aria-label="Nuxt on X"
-        color="neutral"
-        variant="ghost"
-      />
-      <UButton
-        to="https://github.com/nuxt-ui-templates/saas"
-        target="_blank"
-        icon="i-simple-icons-github"
-        aria-label="Nuxt UI on GitHub"
-        color="neutral"
-        variant="ghost"
-      />
+      <ULink to="/catalog" class="text-sm text-muted hover:text-default">Каталог задач</ULink>
     </template>
   </UFooter>
 </template>
