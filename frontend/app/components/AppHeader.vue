@@ -20,6 +20,12 @@ watch(searchOpen, (value) => {
 })
 
 const items = computed(() => [{
+  label: 'Каталог задач',
+  to: '/catalog'
+}, {
+  label: 'Личный кабинет',
+  to: '/account'
+}, {
   label: 'Docs',
   to: '/docs',
   active: isDocs.value
