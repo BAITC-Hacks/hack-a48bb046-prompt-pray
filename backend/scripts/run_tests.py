@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SERVICES = ["api_gateway", "auth_service", "example_service", "ai_service"]
+SERVICES = ["api_gateway", "auth_service", "example_service", "ai_service", "catalog_service"]
 
 if __name__ == "__main__":
     args = sys.argv[1:]
@@ -23,6 +23,10 @@ if __name__ == "__main__":
     failed = []
     for service in selected:
         print(f"\n=== {service} ===", flush=True)
+        test_dir = ROOT / service / "tests"
+        if not test_dir.exists() or not any(test_dir.rglob("test_*.py")):
+            print("Нет тестов — пропущено", flush=True)
+            continue
         result = subprocess.run([sys.executable, "-m", "pytest", "-q", *args], cwd=ROOT / service)
         if result.returncode != 0:
             failed.append(service)

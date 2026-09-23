@@ -3,3 +3,4 @@
 -r example_service/requirements.txt
 -r api_gateway/requirements.txt
 -r ai_service/requirements.txt
+-r catalog_service/requirements.txt

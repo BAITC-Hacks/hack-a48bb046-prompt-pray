@@ -1,14 +1,15 @@
 # backend — микросервисный бэкенд на FastAPI
 
-Основа для быстрого старта: **API Gateway + сервис авторизации + эталонный CRUD-сервис**,
+Основа для быстрого старта: **API Gateway + сервис авторизации + эталонный CRUD-сервис +
+каркас каталога**,
 общий пакет `common/`, PostgreSQL (своя БД на каждый сервис), Docker Compose.
 Структура и подход взяты из `CompEduX/server`.
 
 ```
 Клиент ──► api_gateway :8000 ──► auth_service     ──► auth_db
            (JWT, CORS,           example_service  ──► example_db
-            rate limit,          (свои сервисы…)
-            маршрутизация)
+            rate limit,          ai_service       (без БД)
+            маршрутизация)       catalog_service  ──► catalog_db
 ```
 
 ## Быстрый старт
@@ -41,6 +42,7 @@
 | Состояние всех сервисов | http://localhost:8000/health   |
 | Swagger auth_service    | http://localhost:8001/api/v1/docs (только dev) |
 | Swagger example_service | http://localhost:8002/api/v1/docs (только dev) |
+| Swagger catalog_service | http://localhost:8004/api/v1/docs (только dev) |
 | PostgreSQL              | localhost:5432 (только `start-postgres` и `dev`) |
 
 Swagger каждого сервиса — на его собственном порту: проксируемые gateway методы в его схему
@@ -74,6 +76,8 @@ backend/
 ├── api_gateway/             вход: проверка JWT, проксирование, агрегированный /health
 ├── auth_service/            регистрация, вход, refresh, /users/me
 ├── example_service/         эталон CRUD (items) — копируйте для новых сервисов
+├── ai_service/              генерация текста через OpenAI
+├── catalog_service/         каркас доменного сервиса; пока только /catalog/status
 ├── postgres-init/           создание БД и пользователей при первом старте
 ├── scripts/                 run_local.py (запуск без Docker), generate_secrets.py, run_tests.py
 ├── start.bat / start.sh     запуск одним кликом (SQLite); start-postgres.* — то же на Postgres

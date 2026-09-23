@@ -16,7 +16,13 @@ async def test_health_reports_degraded_when_service_down(client, upstream):
     )
     resp = await client.get("/health")
     assert resp.status_code == 503
-    assert resp.json()["services"] == {"auth": "ok", "example": "error", "ai": "error"}
+    assert resp.json()["services"] == {"auth": "ok", "example": "error", "ai": "error", "catalog": "error"}
+
+
+async def test_catalog_route_forwards_through_gateway(client, upstream):
+    response = await client.get(f"{API}/catalog/status", headers=bearer())
+    assert response.status_code == 200
+    assert str(upstream.requests[0].url) == "http://localhost:8004/api/v1/catalog/status"
 
 
 async def test_unknown_route_is_404(client, upstream):

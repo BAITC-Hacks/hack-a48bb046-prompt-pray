@@ -28,6 +28,7 @@ class Settings(BaseServiceSettings):
     AUTH_SERVICE_URL: str = "http://localhost:8001"
     EXAMPLE_SERVICE_URL: str = "http://localhost:8002"
     AI_SERVICE_URL: str = "http://localhost:8003"
+    CATALOG_SERVICE_URL: str = "http://localhost:8004"
     AI_UPSTREAM_TIMEOUT: float = Field(default=65.0, gt=0)
     UPSTREAM_TIMEOUT: float = 10.0
 
@@ -67,6 +68,7 @@ SERVICES: tuple[ServiceRoute, ...] = (
     ServiceRoute("auth", settings.AUTH_SERVICE_URL, prefixes=("auth", "users")),
     ServiceRoute("example", settings.EXAMPLE_SERVICE_URL, prefixes=("items",)),
     ServiceRoute("ai", settings.AI_SERVICE_URL, prefixes=("ai",), timeout=settings.AI_UPSTREAM_TIMEOUT),
+    ServiceRoute("catalog", settings.CATALOG_SERVICE_URL, prefixes=("catalog",)),
 )
 
 PREFIX_TO_SERVICE: dict[str, ServiceRoute] = {p: s for s in SERVICES for p in s.prefixes}

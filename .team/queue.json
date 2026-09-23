@@ -18,11 +18,11 @@
     "title": "Каркас catalog_service + регистрация в gateway",
     "description": "Скопировать backend/example_service как шаблон слоёв (api/services/repositories/models/schemas). Подключить к api_gateway (Settings.CATALOG_SERVICE_URL, запись в SERVICES с префиксом catalog), .env.example, docker-compose*.yml, postgres-init/, scripts/run_tests.py и run_local.py. Чек-лист — docs/api-standards.md п.10.",
     "priority": "high",
-    "status": "todo",
+    "status": "in_progress",
     "doneCriteria": "Сервис поднимается через start.bat, GET /health отвечает 200, /api/v1/catalog/... маршрутизируется через gateway (проверить curl'ом).",
     "notes": "После T-1 (роли). Без бизнес-логики — только каркас и здоровье сервиса.",
     "createdAt": "2026-09-23T13:39",
-    "updatedAt": "2026-09-23T13:46",
+    "updatedAt": "2026-09-23T14:06",
     "team": "team-2",
     "assignee": "Улан",
     "hours": 5.0

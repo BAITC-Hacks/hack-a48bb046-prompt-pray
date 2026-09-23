@@ -54,6 +54,7 @@ SERVICES = (
     Service("auth_service", "AUTH_SERVICE_PORT", 8001, db_key="AUTH", url_var="AUTH_SERVICE_URL"),
     Service("example_service", "EXAMPLE_SERVICE_PORT", 8002, db_key="EXAMPLE", url_var="EXAMPLE_SERVICE_URL"),
     Service("ai_service", "AI_SERVICE_PORT", 8003, url_var="AI_SERVICE_URL"),
+    Service("catalog_service", "CATALOG_SERVICE_PORT", 8004, db_key="CATALOG", url_var="CATALOG_SERVICE_URL"),
 )
 GATEWAY = Service("api_gateway", "API_GATEWAY_PORT", 8000)
 
@@ -222,7 +223,7 @@ def use_color() -> bool:
 
 
 # 256-цветные коды префиксов [gateway] / [auth] / [example]
-TAG_COLORS = {"gateway": 208, "auth": 141, "example": 205}
+TAG_COLORS = {"gateway": 208, "auth": 141, "example": 205, "catalog": 117}
 TAG_WIDTH = 9  # "[example]"
 
 
@@ -337,7 +338,8 @@ def main() -> None:
   API Gateway:  http://localhost:{gateway_port}/api/v1/…
   Состояние:    http://localhost:{gateway_port}/health
   Swagger:      http://localhost:{ports['auth_service']}/api/v1/docs (auth), \
-http://localhost:{ports['example_service']}/api/v1/docs (example)
+http://localhost:{ports['example_service']}/api/v1/docs (example), \
+http://localhost:{ports['catalog_service']}/api/v1/docs (catalog)
 Остановка: Ctrl+C
 """, flush=True)
 
