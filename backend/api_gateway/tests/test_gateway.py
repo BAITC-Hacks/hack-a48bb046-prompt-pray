@@ -1,7 +1,21 @@
+import uuid
+
 import httpx
 from conftest import REFRESH_TOKEN, bearer
 
 API = "/api/v1"
+
+
+async def test_ai_route_auth_and_timeout(client, upstream):
+    from app.core.config import settings
+
+    assert (await client.post(f"{API}/ai/generate", json={"prompt": "Hello"})).status_code == 401
+    assert upstream.requests == []
+    response = await client.post(f"{API}/ai/generate", headers=bearer(), json={"prompt": "Hello"})
+    assert response.status_code == 200
+    sent = upstream.requests[0]
+    assert str(sent.url) == f"{settings.AI_SERVICE_URL}/api/v1/ai/generate"
+    assert sent.extensions["timeout"]["read"] == settings.AI_UPSTREAM_TIMEOUT
 
 
 async def test_healthz(client):
@@ -10,13 +24,42 @@ async def test_healthz(client):
     assert resp.json()["service"] == "api_gateway"
 
 
+async def test_catalog_health_routes_to_catalog_service(client, upstream):
+    assert (await client.get(f"{API}/catalog/health")).status_code == 401
+    assert upstream.requests == []
+    response = await client.get(f"{API}/catalog/health", headers=bearer())
+    assert response.status_code == 200
+    assert str(upstream.requests[0].url) == "http://localhost:8004/api/v1/catalog/health"
+
+
+async def test_health_includes_catalog(client, upstream):
+    response = await client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["services"]["catalog"] == "ok"
+    assert any(str(request.url) == "http://localhost:8004/health" for request in upstream.requests)
+
+
+async def test_catalog_public_reads_do_not_expose_mutations(client, upstream):
+    task_path = f"{API}/catalog/tasks/{uuid.uuid4()}"
+    assert (await client.get(f"{API}/catalog?limit=2&offset=1")).status_code == 200
+    assert (await client.get(task_path)).status_code == 200
+    upstream.requests.clear()
+    for method, path in [
+        ("POST", f"{API}/catalog/drafts"), ("PATCH", task_path),
+        ("GET", task_path + "/proposals"), ("POST", task_path + "/decisions"),
+        ("GET", f"{API}/catalog/tasks/not-a-uuid"),
+    ]:
+        assert (await client.request(method, path)).status_code == 401
+    assert upstream.requests == []
+
+
 async def test_health_reports_degraded_when_service_down(client, upstream):
     upstream.handler = lambda request: (
         httpx.Response(200) if request.url.host == "localhost" and request.url.port == 8001 else httpx.Response(503)
     )
     resp = await client.get("/health")
     assert resp.status_code == 503
-    assert resp.json()["services"] == {"auth": "ok", "example": "error", "ai": "error"}
+    assert resp.json()["services"] == {"auth": "ok", "example": "error", "ai": "error", "catalog": "error"}
 
 
 async def test_unknown_route_is_404(client, upstream):

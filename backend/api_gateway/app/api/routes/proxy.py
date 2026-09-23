@@ -1,3 +1,5 @@
+import re
+
 import httpx
 from fastapi import APIRouter, Request, Response
 
@@ -16,6 +18,10 @@ def _authenticate(request: Request) -> None:
     """Пропускает публичные эндпоинты, для остальных требует валидный access-токен."""
     path = request.url.path.rstrip("/")
     if (request.method, path) in PUBLIC_ENDPOINTS:
+        return
+    if request.method == "GET" and re.fullmatch(
+        re.escape(settings.API_V1_STR) + r"/catalog/tasks/[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", path
+    ):
         return
     scheme, _, token = request.headers.get("Authorization", "").partition(" ")
     if scheme.lower() != "bearer" or not token:

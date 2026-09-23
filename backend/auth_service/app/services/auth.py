@@ -30,8 +30,8 @@ class AuthService:
             User(
                 email=data.email,
                 username=data.username,
-                hashed_password=await hash_password(data.password),
                 role=data.role,
+                hashed_password=await hash_password(data.password),
             )
         )
         try:
@@ -72,7 +72,7 @@ class AuthService:
             subject=str(user.id),
             token_type=ACCESS_TOKEN,
             expires_delta=access_ttl,
-            claims={"email": user.email, "is_admin": user.is_admin, "role": user.role.value},
+            claims={"email": user.email, "is_admin": user.is_admin, "role": user.role},
             **common,
         )
         refresh = create_token(

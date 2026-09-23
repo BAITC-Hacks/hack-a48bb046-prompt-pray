@@ -1,10 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
-
-from common.auth import UserRole
 
 from ..core.security import MAX_PASSWORD_BYTES
 
@@ -15,7 +13,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     username: Username
     password: str = Field(min_length=8)
-    role: UserRole = UserRole.BUSINESS
+    role: Literal["business", "student"] = "student"
 
     @field_validator("email")
     @classmethod
@@ -42,5 +40,5 @@ class UserRead(BaseModel):
     username: str
     is_active: bool
     is_admin: bool
-    role: UserRole
+    role: Literal["business", "student"]
     created_at: datetime

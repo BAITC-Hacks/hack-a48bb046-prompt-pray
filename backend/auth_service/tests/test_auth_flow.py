@@ -1,3 +1,6 @@
+import pytest
+
+from app.core.config import settings
 from common.auth import decode_token
 
 API = "/api/v1"
@@ -15,51 +18,13 @@ async def register_and_login(client):
 async def test_register_login_me(client):
     tokens = await register_and_login(client)
 
-    claims = decode_token(
-        tokens["access_token"],
-        secret="test-secret-key-test-secret-key-1234",
-    )
-    assert claims["role"] == "business"
-
     resp = await client.get(f"{API}/users/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
     assert resp.status_code == 200
     body = resp.json()
     assert body["email"] == "alice@example.com"  # email нормализуется
     assert body["is_admin"] is False
-    assert body["role"] == "business"
+    assert body["role"] == "student"
     assert "hashed_password" not in body
-
-
-async def test_student_role_is_stored_returned_and_added_to_access_token(client):
-    user = {**USER, "email": "student@example.com", "username": "student", "role": "student"}
-    resp = await client.post(f"{API}/auth/register", json=user)
-    assert resp.status_code == 201, resp.text
-    assert resp.json()["role"] == "student"
-
-    resp = await client.post(
-        f"{API}/auth/login",
-        json={"email": user["email"], "password": user["password"]},
-    )
-    assert resp.status_code == 200, resp.text
-    tokens = resp.json()
-    claims = decode_token(
-        tokens["access_token"],
-        secret="test-secret-key-test-secret-key-1234",
-    )
-    assert claims["role"] == "student"
-
-    resp = await client.get(
-        f"{API}/users/me",
-        headers={"Authorization": f"Bearer {tokens['access_token']}"},
-    )
-    assert resp.status_code == 200, resp.text
-    assert resp.json()["role"] == "student"
-
-
-async def test_registration_rejects_unknown_role(client):
-    user = {**USER, "role": "admin"}
-    resp = await client.post(f"{API}/auth/register", json=user)
-    assert resp.status_code == 422
 
 
 async def test_duplicate_registration_conflicts(client):
@@ -100,3 +65,34 @@ async def test_health(client):
     resp = await client.get("/health")
     assert resp.status_code == 200
     assert resp.json()["checks"] == {"database": "ok"}
+
+
+@pytest.mark.parametrize("role", ["business", "student"])
+async def test_role_in_registration_login_me_and_refresh(client, role):
+    registered = await client.post(f"{API}/auth/register", json={**USER, "role": role})
+    assert registered.status_code == 201
+    assert registered.json()["role"] == role
+    login = await client.post(f"{API}/auth/login", json={"email": USER["email"], "password": USER["password"]})
+    assert login.status_code == 200
+    tokens = login.json()
+    payload = decode_token(tokens["access_token"], secret=settings.JWT_SECRET_KEY)
+    assert payload["role"] == role
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    assert (await client.get(f"{API}/users/me", headers=headers)).json()["role"] == role
+    refreshed = await client.post(f"{API}/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert refreshed.status_code == 200
+    assert decode_token(refreshed.json()["access_token"], secret=settings.JWT_SECRET_KEY)["role"] == role
+
+
+@pytest.mark.parametrize("role", ["admin", "", None, 1])
+async def test_registration_rejects_invalid_roles(client, role):
+    response = await client.post(f"{API}/auth/register", json={**USER, "role": role})
+    assert response.status_code == 422
+
+
+async def test_profile_update_cannot_change_role(client):
+    tokens = await register_and_login(client)
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+    response = await client.patch(f"{API}/users/me", json={"role": "business"}, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["role"] == "student"
