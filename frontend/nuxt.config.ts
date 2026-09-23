@@ -30,6 +30,8 @@ export default defineNuxtConfig({
   },
 
   buildDir: process.env.NUXT_BUILD_DIR || undefined,
+  // Process vue-i18n's bundler entry in SSR too, so feature flags are replaced.
+  build: { transpile: ['vue-i18n'] },
 
   routeRules: {
     '/': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
@@ -51,6 +53,8 @@ export default defineNuxtConfig({
       crawlLinks: false
     }
   },
+
+  vite: { define: { __VUE_PROD_DEVTOOLS__: false } },
 
   eslint: {
     config: {
