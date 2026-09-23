@@ -6,10 +6,9 @@
 
 Парный проект — [`../backend`](../backend/README.md) (FastAPI, вход через API Gateway на `:8000`).
 
-> **Важно: сейчас фронтенд с бэкендом не связан.** Страницы `login` и `signup` — заглушки:
-> форма валидируется через `zod`, но `onSubmit` только пишет в консоль, а кнопки Google/GitHub
-> показывают toast. Запросов к API в коде нет. Как подключить бэкенд — в разделе
-> [Интеграция с бэкендом](#интеграция-с-бэкендом).
+Фронтенд подключён к gateway через Nitro `/api/gateway`. Доступны `/login`, `/signup`,
+защищённый `/account`, `/tasks/new`, `/tasks/:id` и публичный `/catalog`.
+Refresh-токен хранится только в httpOnly cookie, access-токен — в состоянии текущего приложения.
 
 ## Требования
 
@@ -46,6 +45,8 @@ CI запускает `lint` и `typecheck` на каждый push. Перед �
 
 | Переменная             | Назначение                                                        |
 |------------------------|-------------------------------------------------------------------|
+| `NUXT_PUBLIC_API_BASE` | URL API для useApi; по умолчанию `/api/gateway` |
+| `NUXT_GATEWAY_URL` | Серверный URL gateway; по умолчанию `http://127.0.0.1:8000` |
 | `NUXT_PUBLIC_SITE_URL` | публичный URL сайта; нужен `nuxt-og-image` при `nuxt generate`    |
 
 Правило Nuxt: переменная `NUXT_PUBLIC_*` попадает в клиентский бандл и **видна всем**.
@@ -115,20 +116,17 @@ frontend/
 `GET /users/me`. Вход возвращает пару токенов (`access_token`, `refresh_token`), остальные запросы идут
 с заголовком `Authorization: Bearer <access_token>`. Формат ошибок: `{"detail": "...", "code": "..."}`.
 
-Рекомендуемый порядок подключения (пока не сделан):
+Настройка:
 
-1. **Адрес API — в `runtimeConfig`**, а не в коде: `runtimeConfig.public.apiBase`, значение из
-   `NUXT_PUBLIC_API_BASE` (добавьте в `.env.example`). Адрес не секрет, поэтому `public` допустим.
-2. **CORS.** Либо проксируйте `/api/**` через Nitro (`routeRules` с `proxy` на gateway) — тогда браузер
-   ходит на тот же origin и CORS не нужен; либо укажите origin фронтенда в `BACKEND_CORS_ORIGINS`
-   бэкенда (для dev — `http://localhost:3000`). В production `BACKEND_CORS_ORIGINS` обязателен.
-3. **Единая обёртка над запросами** (`app/composables/useApi.ts` на базе `$fetch`): подстановка
-   `Authorization`, единая обработка ошибок `{detail, code}`, один повтор через `/auth/refresh` при 401.
-4. **Хранение токенов.** Не кладите refresh-токен в `localStorage` (доступен любому XSS). Предпочтительно
-   `httpOnly`-cookie, которую выставляет серверная часть Nuxt (Nitro-роут между браузером и gateway).
-5. **Защита страниц** — route middleware в `app/middleware/`, а не проверки внутри страниц.
-6. В `pages/login.vue` и `pages/signup.vue` заменить `console.log` в `onSubmit` на вызов обёртки и
-   показывать ошибки бэкенда через `useToast()` / ошибки полей формы.
+- `NUXT_PUBLIC_API_BASE=/api/gateway` — базовый URL composable `useApi`.
+- `NUXT_GATEWAY_URL=http://127.0.0.1:8000` — серверный адрес gateway для Nitro.
+- Запустите backend и `pnpm dev`; браузер обращается к тому же origin, CORS не требуется.
+- Nitro сохраняет refresh-токен в httpOnly/SameSite cookie и удаляет его из ответа браузеру.
+  В production cookie требует HTTPS. `useApi` один раз повторяет защищённый запрос после 401,
+  предварительно обновив access-токен. Параллельные обновления объединяются.
+- `/account` и `/tasks/new` защищены middleware; `/catalog` и опубликованные карточки публичны.
+- Формы показывают `{detail, code}`; доменные формы также показывают ошибки валидации по полям.
+- Выбор команд на карточке выполняется только явно представителем бизнеса.
 
 Типы ответов бэкенда держите в `app/types/` в соответствии со схемами `auth_service/app/schemas/`;
 при изменении API правьте обе стороны в одном согласованном наборе изменений.
@@ -146,7 +144,9 @@ frontend/
 
 ## Production
 
-`pnpm build` → `.output/` (Node-сервер Nitro; для статического хостинга — `nuxt generate`).
+`pnpm build` → `.output/` (Node-сервер Nitro). Статический хостинг не поддерживается:
+авторизация и API-прокси требуют работающий Nitro сервер. Каталог, задачи, аккаунт и формы
+авторизации исключены из prerender и обрабатываются при каждом запросе.
 Перед выкладкой задайте `NUXT_PUBLIC_SITE_URL`. Главная страница пререндерится, остальные ссылки
 подхватываются краулером (`nitro.prerender.crawlLinks`); `/docs` редиректит на `/docs/getting-started`.
 

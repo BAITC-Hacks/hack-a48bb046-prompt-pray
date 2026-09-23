@@ -20,8 +20,18 @@ export default defineNuxtConfig({
       sqliteConnector: 'native'
     }
   },
+  runtimeConfig: {
+    gatewayUrl: 'http://127.0.0.1:8000',
+    public: { apiBase: '/api/gateway' }
+  },
 
   routeRules: {
+    '/catalog': { prerender: false },
+    '/account': { prerender: false },
+    '/tasks/**': { prerender: false },
+    '/login': { prerender: false },
+    '/signup': { prerender: false },
+    '/api/**': { prerender: false },
     '/docs': { redirect: '/docs/getting-started', prerender: false }
   },
 
