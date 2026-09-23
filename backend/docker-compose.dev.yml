@@ -1,0 +1,46 @@
+# Надстройка для разработки: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Код монтируется в контейнеры, uvicorn перезапускается при изменениях,
+# порты сервисов и БД доступны с localhost (только с этой машины).
+
+x-dev-service: &dev-service
+  environment: &dev-env
+    ENV: development
+    DEBUG: "true"
+    LOG_LEVEL: DEBUG
+    WATCHFILES_FORCE_POLLING: "true" # inotify не работает на bind-mount в Docker Desktop (Windows/macOS)
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+
+  auth_service:
+    <<: *dev-service
+    ports:
+      - "127.0.0.1:${AUTH_SERVICE_PORT:-8001}:8000"
+    volumes:
+      - ./auth_service/app:/app/app
+      - ./common:/app/common
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log
+      --reload --reload-dir /app/app --reload-dir /app/common
+
+  example_service:
+    <<: *dev-service
+    ports:
+      - "127.0.0.1:${EXAMPLE_SERVICE_PORT:-8002}:8000"
+    volumes:
+      - ./example_service/app:/app/app
+      - ./common:/app/common
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log
+      --reload --reload-dir /app/app --reload-dir /app/common
+
+  api_gateway:
+    <<: *dev-service
+    volumes:
+      - ./api_gateway/app:/app/app
+      - ./common:/app/common
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log
+      --reload --reload-dir /app/app --reload-dir /app/common

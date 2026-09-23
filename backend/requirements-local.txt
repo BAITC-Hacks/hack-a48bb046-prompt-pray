@@ -1,0 +1,4 @@
+# Зависимости для запуска без Docker (start.bat / start.sh): все сервисы, без тестовых инструментов
+-r auth_service/requirements.txt
+-r example_service/requirements.txt
+-r api_gateway/requirements.txt

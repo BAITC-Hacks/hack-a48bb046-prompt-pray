@@ -1,0 +1,2 @@
+-r ../common/requirements.txt
+-r ../common/requirements-db.txt

@@ -1,0 +1,107 @@
+# Базовая конфигурация (prod-like): наружу опубликован только api_gateway.
+# Для разработки добавляется docker-compose.dev.yml (см. dev.sh / dev.bat).
+
+x-app-env: &app-env
+  ENV: ${ENV:-production}
+  DEBUG: ${DEBUG:-false}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Задайте JWT_SECRET_KEY в .env (python scripts/generate_secrets.py)}
+
+x-healthcheck: &healthcheck
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=3)"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 15s
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Задайте POSTGRES_ADMIN_PASSWORD в .env}
+      POSTGRES_DB: postgres
+      # Используются скриптом postgres-init/01-create-databases.sh
+      AUTH_DB_NAME: ${AUTH_DB_NAME:-auth_db}
+      AUTH_DB_USER: ${AUTH_DB_USER:-auth_user}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?Задайте AUTH_DB_PASSWORD в .env}
+      EXAMPLE_DB_NAME: ${EXAMPLE_DB_NAME:-example_db}
+      EXAMPLE_DB_USER: ${EXAMPLE_DB_USER:-example_user}
+      EXAMPLE_DB_PASSWORD: ${EXAMPLE_DB_PASSWORD:?Задайте EXAMPLE_DB_PASSWORD в .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ADMIN_USER:-postgres} -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+
+  auth_service:
+    build:
+      context: .
+      dockerfile: auth_service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${AUTH_DB_NAME:-auth_db}
+      POSTGRES_USER: ${AUTH_DB_USER:-auth_user}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:?Задайте AUTH_DB_PASSWORD в .env}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck: *healthcheck
+    networks: [backend]
+
+  example_service:
+    build:
+      context: .
+      dockerfile: example_service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${EXAMPLE_DB_NAME:-example_db}
+      POSTGRES_USER: ${EXAMPLE_DB_USER:-example_user}
+      POSTGRES_PASSWORD: ${EXAMPLE_DB_PASSWORD:?Задайте EXAMPLE_DB_PASSWORD в .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck: *healthcheck
+    networks: [backend]
+
+  api_gateway:
+    build:
+      context: .
+      dockerfile: api_gateway/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      AUTH_SERVICE_URL: http://auth_service:8000
+      EXAMPLE_SERVICE_URL: http://example_service:8000
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
+      RATE_LIMIT_PER_HOUR: ${RATE_LIMIT_PER_HOUR:-1000}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
+    ports:
+      - "${API_GATEWAY_PORT:-8000}:8000"
+    depends_on:
+      auth_service:
+        condition: service_healthy
+      example_service:
+        condition: service_healthy
+    healthcheck: *healthcheck
+    networks: [backend]
+
+volumes:
+  postgres_data:
+
+networks:
+  backend:

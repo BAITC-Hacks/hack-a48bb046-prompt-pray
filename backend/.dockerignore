@@ -1,0 +1,26 @@
+.git
+.gitignore
+.gitattributes
+.idea
+.vscode
+
+# Секреты не должны попадать в образы
+.env
+.env.*
+
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/tests
+**/pytest.ini
+venv
+.venv
+logs
+data
+*.log
+*.db
+
+*.md
+docker-compose*.yml
+postgres-init
+scripts

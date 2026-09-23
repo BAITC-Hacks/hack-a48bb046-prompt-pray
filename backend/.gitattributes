@@ -1,0 +1,4 @@
+# Скрипты, исполняемые в Linux-контейнерах и shell, обязаны иметь LF-окончания строк
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.bat text eol=crlf

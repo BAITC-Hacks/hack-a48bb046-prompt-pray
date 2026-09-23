@@ -1,0 +1,4 @@
+-r ../common/requirements.txt
+-r ../common/requirements-db.txt
+bcrypt>=4.1.0
+email-validator>=2.1.0

@@ -1,0 +1,14 @@
+# Утилиты доски задач — раздаются вручную, в историю не попадают
+tools/
+
+# Архив готового окружения (backend/.venv + frontend/node_modules) — раздаётся вручную
+AstanaTasks-deps.zip
+
+# Python
+__pycache__/
+*.pyc
+
+# Зависимости
+node_modules/
+
+.env
