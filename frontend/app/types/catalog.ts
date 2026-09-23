@@ -8,10 +8,12 @@ export const cardFields = [
   { key: 'business_contact', label: 'Связь с бизнесом', points: 10 }
 ] as const
 export type CardField = typeof cardFields[number]['key']
-export interface Draft { id: string, description: string, card_id: string | null }
+export type DraftLocale = 'ru' | 'kk' | 'en'
+export interface Draft { id: string, description: string, locale: DraftLocale, card_id: string | null }
 export interface Question { id: string, question: string, field: CardField, answer: string | null, position: number }
 export type Card = Record<CardField, string | null> & {
   id: string
+  version: number
   title: string
   business_id: string
   confirmed_at: string | null

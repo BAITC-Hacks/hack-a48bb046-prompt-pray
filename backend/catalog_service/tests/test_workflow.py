@@ -16,9 +16,10 @@ async def make_card(client, headers, title="Task"):
 
 
 async def publish(client, headers, key):
-    confirmed = await client.post(f"{API}/tasks/{key}/confirm", json={"confirmed": True}, headers=headers)
+    card = (await client.get(f"{API}/tasks/{key}", headers=headers)).json()
+    confirmed = await client.post(f"{API}/tasks/{key}/confirm", json={"confirmed": True, "expected_version": card["version"]}, headers=headers)
     assert confirmed.status_code == 200, confirmed.text
-    response = await client.post(f"{API}/tasks/{key}/publish", headers=headers)
+    response = await client.post(f"{API}/tasks/{key}/publish", json={"expected_version": confirmed.json()["version"]}, headers=headers)
     assert response.status_code in (200, 201), response.text
 
 
@@ -57,12 +58,13 @@ async def test_full_workflow_rating_publication_and_manual_selection(client, mon
     assert card["rating"]["total"] == 70
     assert card["data"] == "Answer data"
     assert card["users"] is None  # No invented facts.
-    assert (await client.post(f"{API}/tasks/{key}/publish", headers=owner)).status_code == 400
-    updated = await client.patch(f"{API}/tasks/{key}", json={"users": "Sales team", "constraints": "Two weeks", "business_contact": "Owner"}, headers=owner)
+    assert (await client.post(f"{API}/tasks/{key}/publish", json={"expected_version": card["version"]}, headers=owner)).status_code == 400
+    updated = await client.patch(f"{API}/tasks/{key}", json={"expected_version": card["version"], "users": "Sales team", "constraints": "Two weeks", "business_contact": "Owner"}, headers=owner)
     assert updated.status_code == 200, updated.text
     assert updated.json()["rating"]["total"] == 100
     await publish(client, owner, key)
-    repeated = await client.post(f"{API}/tasks/{key}/publish", headers=owner)
+    current = (await client.get(f"{API}/tasks/{key}", headers=owner)).json()
+    repeated = await client.post(f"{API}/tasks/{key}/publish", json={"expected_version": current["version"]}, headers=owner)
     assert repeated.status_code == 200, repeated.text
     assert repeated.json()["task_id"] == key
     low_card = await make_card(client, owner, "Low completeness")
@@ -92,11 +94,11 @@ async def test_full_workflow_rating_publication_and_manual_selection(client, mon
         decision = await client.post(f"{API}/tasks/{key}/decisions", json={"selected_proposal_ids": selected}, headers=owner)
         assert decision.status_code == 201, decision.text
         assert set(decision.json()["selected_proposal_ids"]) == set(selected)
-    changed = await client.patch(f"{API}/tasks/{key}", json={"data": None}, headers=owner)
+    changed = await client.patch(f"{API}/tasks/{key}", json={"data": None, "expected_version": repeated.json()["task"]["version"]}, headers=owner)
     assert changed.status_code == 200, changed.text
     assert changed.json()["rating"]["total"] == 80
     assert changed.json()["confirmed_at"] is None
-    assert (await client.post(f"{API}/tasks/{key}/publish", headers=owner)).status_code == 400
+    assert (await client.post(f"{API}/tasks/{key}/publish", json={"expected_version": changed.json()["version"]}, headers=owner)).status_code == 400
     assert (await client.get(API, headers=student)).json()["total"] == 1
 
 
@@ -108,8 +110,8 @@ async def test_roles_ownership_and_server_owned_fields(client):
     assert forged.status_code == 422
     card = await make_card(client, owner)
     key = card["id"]
-    assert (await client.patch(f"{API}/tasks/{key}", json={"title": "Stolen"}, headers=stranger)).status_code == 403
-    assert (await client.post(f"{API}/tasks/{key}/confirm", json={"confirmed": True}, headers=student)).status_code == 403
+    assert (await client.patch(f"{API}/tasks/{key}", json={"title": "Stolen", "expected_version": card["version"]}, headers=stranger)).status_code == 403
+    assert (await client.post(f"{API}/tasks/{key}/confirm", json={"confirmed": True, "expected_version": card["version"]}, headers=student)).status_code == 403
     assert (await client.patch(f"{API}/tasks/{key}", json={"rating": {"total": 100}}, headers=owner)).status_code == 422
     assert (await client.post(f"{API}/tasks/{key}/confirm", json={"confirmed": False}, headers=owner)).status_code == 422
     payload = {"team_id": str(uuid4()), "idea": "Idea", "plan": "Plan"}

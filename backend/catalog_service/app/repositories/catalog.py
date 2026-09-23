@@ -33,9 +33,20 @@ class CatalogRepository:
         ))
 
     async def card(self, key):
-        return await self.session.scalar(select(TaskCard).where(TaskCard.id == key).options(
+        return await self.session.scalar(select(TaskCard).where(TaskCard.id == key).execution_options(
+            populate_existing=True,
+        ).options(
             selectinload(TaskCard.rating), selectinload(TaskCard.catalog_entry)
         ))
+
+    async def claim_card_version(self, key, business_id, expected_version):
+        # The conditional UPDATE acquires a write lock in SQLite and PostgreSQL.
+        # Keep it until content/rating/publication changes commit together.
+        result = await self.session.execute(update(TaskCard).where(
+            TaskCard.id == key, TaskCard.business_id == business_id,
+            TaskCard.version == expected_version,
+        ).values(version=TaskCard.version + 1).execution_options(synchronize_session=False))
+        return result.rowcount == 1
 
     async def card_for_draft(self, key):
         return await self.session.scalar(select(TaskCard).where(TaskCard.draft_id == key))

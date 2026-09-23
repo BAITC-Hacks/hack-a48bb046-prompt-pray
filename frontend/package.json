@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "test:auth": "node tests/auth.integration.mjs",
-    "test:catalog": "node tests/catalog.integration.mjs"
+    "test:catalog": "node tests/catalog.integration.mjs",
+    "test:draft-locale": "node --test tests/draft-locale.test.mjs",
+    "test:card-version": "node --test tests/card-version.test.mjs"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.131",

@@ -33,8 +33,9 @@ async def test_zero_rating_task_is_public_and_accepts_proposals(client):
     assert card['rating']['total'] == 0
     assert card['rating']['readiness'] == 'черновик'
     key = card['id']
-    assert (await client.post(f"{API}/tasks/{key}/confirm", json={"confirmed": True}, headers=owner)).status_code == 200
-    assert (await client.post(f"{API}/tasks/{key}/publish", headers=owner)).status_code == 200
+    confirmed = await client.post(f"{API}/tasks/{key}/confirm", json={"confirmed": True, "expected_version": card["version"]}, headers=owner)
+    assert confirmed.status_code == 200
+    assert (await client.post(f"{API}/tasks/{key}/publish", json={"expected_version": confirmed.json()["version"]}, headers=owner)).status_code == 200
     assert (await client.get(API)).json()['items'][0]['task']['rating']['total'] == 0
     proposal = await client.post(f"{API}/tasks/{key}/proposals", headers=auth_headers('student'),
         json={"team_id": str(uuid4()), "idea": "Discuss requirements", "plan": "Interview owner"})
