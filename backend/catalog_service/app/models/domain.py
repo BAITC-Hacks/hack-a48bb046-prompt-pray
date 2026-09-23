@@ -54,6 +54,7 @@ class TaskCard(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     draft_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("task_drafts.id"), unique=True)
     business_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True)
     title: Mapped[str] = mapped_column(String(200))
+    topic: Mapped[str | None] = mapped_column(String(32))
     context: Mapped[str | None] = mapped_column(Text)
     data: Mapped[str | None] = mapped_column(Text)
     expected_result: Mapped[str | None] = mapped_column(Text)
@@ -108,6 +109,12 @@ decision_proposals = Table(
     Column("proposal_id", ForeignKey("proposals.id"), primary_key=True),
 )
 
+decision_rejections = Table(
+    "selection_decision_rejections", Base.metadata,
+    Column("decision_id", ForeignKey("selection_decisions.id"), primary_key=True),
+    Column("proposal_id", ForeignKey("proposals.id"), primary_key=True),
+)
+
 
 class Proposal(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "proposals"
@@ -130,7 +137,12 @@ class SelectionDecision(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     comment: Mapped[str | None] = mapped_column(Text)
     task: Mapped[TaskCard] = relationship(back_populates="decisions")
     selected_proposals: Mapped[list[Proposal]] = relationship(secondary=decision_proposals)
+    rejected_proposals: Mapped[list[Proposal]] = relationship(secondary=decision_rejections)
 
     @property
     def selected_proposal_ids(self) -> list[uuid.UUID]:
         return [proposal.id for proposal in self.selected_proposals]
+
+    @property
+    def rejected_proposal_ids(self) -> list[uuid.UUID]:
+        return [proposal.id for proposal in self.rejected_proposals]

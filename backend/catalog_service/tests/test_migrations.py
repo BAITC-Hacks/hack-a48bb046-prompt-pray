@@ -1,5 +1,6 @@
 """Run PostgreSQL cases with CATALOG_TEST_POSTGRES_URL pointing at a test server."""
 import os
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -51,7 +52,7 @@ async def snapshot(engine):
 
 async def assert_head(engine):
     async with engine.connect() as connection:
-        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "0002_locale_version"
+        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "0003_catalog_decisions"
         assert await connection.run_sync(
             lambda conn: compare_metadata(MigrationContext.configure(conn), Base.metadata)
         ) == []
@@ -83,6 +84,28 @@ async def test_legacy_upgrade_preserves_every_row_and_relationship(migration_eng
     await upgrade(migration_engine)
     await assert_head(migration_engine)
     assert await snapshot(migration_engine) == before
+
+
+async def test_legacy_decisions_keep_rejections_but_not_future_proposals(migration_engine):
+    async with migration_engine.begin() as connection:
+        await connection.run_sync(LegacyBase.metadata.create_all)
+    now = datetime.now(timezone.utc)
+    async with async_sessionmaker(migration_engine, expire_on_commit=False)() as session:
+        business = uuid4()
+        draft = TaskDraft(business_id=business, description='Existing task')
+        card = TaskCard(draft=draft, business_id=business, title='Existing card')
+        proposals = [Proposal(task=card, team_id=uuid4(), user_id=uuid4(), idea='Idea', plan='Plan',
+                             created_at=now + timedelta(seconds=offset)) for offset in [-2, -1, 1]]
+        decision = SelectionDecision(task=card, business_id=business, created_at=now,
+                                     selected_proposals=proposals[:1])
+        session.add_all([*proposals, decision])
+        await session.commit()
+    await upgrade(migration_engine)
+    await upgrade(migration_engine)
+    from app.models.domain import decision_rejections
+    async with migration_engine.connect() as connection:
+        rows = (await connection.execute(select(decision_rejections))).all()
+        assert rows == [(decision.id, proposals[1].id)]
 
 
 @pytest.mark.parametrize("damage", ["partial", "column"])

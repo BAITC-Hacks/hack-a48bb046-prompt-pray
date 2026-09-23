@@ -21,6 +21,18 @@ defineProps<{ entry: CatalogEntry }>()
         aria-hidden="true"
       />
     </div>
+    <UBadge
+      color="neutral"
+      variant="subtle"
+    >
+      {{ t(`topics.${entry.task.topic || 'unspecified'}`) }}
+    </UBadge>
+    <p
+      v-if="(entry.task.rating?.total ?? 0) < 40"
+      class="text-sm font-medium text-primary"
+    >
+      {{ t('catalogFilters.lowRatingOpen') }}
+    </p>
     <h2 class="mt-7 line-clamp-2 text-xl font-semibold leading-snug tracking-tight text-highlighted">
       {{ entry.task.title }}
     </h2>

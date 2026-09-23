@@ -51,12 +51,19 @@ class CatalogRepository:
     async def card_for_draft(self, key):
         return await self.session.scalar(select(TaskCard).where(TaskCard.draft_id == key))
 
-    async def catalog(self, limit, offset, terms=None):
-        total = await self.session.scalar(select(func.count()).select_from(CatalogEntry))
+    async def catalog(self, limit, offset, terms=None, topic=None, readiness=None):
         rating = sum(getattr(RatingBreakdown, name) for name in (
             'context', 'data', 'expected_result', 'success_criteria',
             'constraints', 'users', 'business_contact',
         ))
+        query = select(CatalogEntry).join(TaskCard).join(RatingBreakdown)
+        if topic:
+            query = query.where(TaskCard.topic.is_(None) if topic == 'unspecified' else TaskCard.topic == topic)
+        if readiness:
+            minimum, maximum = {'draft': (0, 39), 'working': (40, 69),
+                                'ready': (70, 89), 'priority': (90, 100)}[readiness]
+            query = query.where(rating.between(minimum, maximum))
+        total = await self.session.scalar(select(func.count()).select_from(query.subquery()))
         order = []
         if terms:
             # Bound parameters and autoescape keep profile text out of SQL syntax.
@@ -64,21 +71,27 @@ class CatalogRepository:
                               + ' ' + func.coalesce(TaskCard.expected_result, '') + ' ' + func.coalesce(TaskCard.constraints, ''))
             relevance = sum(case((text.contains(term, autoescape=True), 1), else_=0) for term in terms)
             order.append(relevance.desc())
-        items = (await self.session.scalars(select(CatalogEntry).join(TaskCard).join(RatingBreakdown)
+        items = (await self.session.scalars(query
             .options(selectinload(CatalogEntry.task).selectinload(TaskCard.rating))
             .order_by(*order, rating.desc(), CatalogEntry.published_at.desc(), CatalogEntry.task_id)
             .limit(limit).offset(offset))).all()
         return items, total
 
-    async def proposals(self, task_id):
-        return (await self.session.scalars(select(Proposal).where(Proposal.task_id == task_id)
+    async def proposals(self, task_id, user_id=None):
+        query = select(Proposal).where(Proposal.task_id == task_id)
+        if user_id is not None:
+            query = query.where(Proposal.user_id == user_id)
+        return (await self.session.scalars(query
             .order_by(Proposal.created_at, Proposal.id))).all()
 
-    async def decisions(self, task_id):
-        return (await self.session.scalars(select(SelectionDecision).where(
+    async def decisions(self, task_id, limit=None):
+        query = select(SelectionDecision).where(
             SelectionDecision.task_id == task_id
-        ).options(selectinload(SelectionDecision.selected_proposals))
-            .order_by(SelectionDecision.created_at.desc(), SelectionDecision.id))).all()
+        ).options(selectinload(SelectionDecision.selected_proposals), selectinload(SelectionDecision.rejected_proposals))
+        query = query.order_by(SelectionDecision.created_at.desc(), SelectionDecision.id)
+        if limit is not None:
+            query = query.limit(limit)
+        return (await self.session.scalars(query)).all()
 
     async def latest_decision_time(self, task_id):
         return await self.session.scalar(select(func.max(SelectionDecision.created_at)).where(

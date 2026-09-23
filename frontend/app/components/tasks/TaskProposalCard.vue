@@ -1,21 +1,58 @@
 <script setup lang="ts">
-import type { Proposal } from '~/types/catalog'
+import type { Proposal, ProposalStatus } from '~/types/catalog'
 
-defineProps<{ proposal: Proposal, index: number, pending: boolean, taskId?: string }>()
-const selected = defineModel<boolean>({ required: true })
+defineProps<{ proposal: Proposal, index: number, pending?: boolean, taskId?: string, editable?: boolean }>()
+const status = defineModel<ProposalStatus>({ default: 'pending' })
 const { t, n } = useAppI18n()
 </script>
 
 <template>
   <AppCard
+    :data-proposal-id="proposal.id"
     :title="t('proposal.teamNumber', { number: n(index + 1) })"
-    :class="selected ? 'ring-2 ring-primary' : 'bg-muted/20'"
+    :class="editable && status === 'selected' ? 'ring-2 ring-primary' : 'bg-muted/20'"
   >
-    <UCheckbox
-      v-model="selected"
-      :disabled="pending"
-      :label="t('proposal.select')"
-    />
+    <UBadge
+      :color="proposal.status === 'selected' ? 'success' : proposal.status === 'rejected' ? 'error' : 'neutral'"
+      variant="subtle"
+    >
+      {{ t(`decisions.${proposal.status}`) }}
+    </UBadge>
+    <template v-if="editable">
+      <div class="flex flex-wrap gap-2">
+        <UButton
+          :label="t('decisions.select')"
+          icon="i-lucide-check"
+          :variant="status === 'selected' ? 'solid' : 'outline'"
+          :aria-pressed="status === 'selected'"
+          :disabled="pending"
+          @click="status = 'selected'"
+        />
+        <UButton
+          :label="t('decisions.reject')"
+          icon="i-lucide-x"
+          color="error"
+          :variant="status === 'rejected' ? 'solid' : 'outline'"
+          :aria-pressed="status === 'rejected'"
+          :disabled="pending"
+          @click="status = 'rejected'"
+        />
+        <UButton
+          v-if="status !== 'pending'"
+          :label="t('decisions.defer')"
+          color="neutral"
+          variant="ghost"
+          :disabled="pending"
+          @click="status = 'pending'"
+        />
+      </div>
+      <p
+        v-if="status !== proposal.status"
+        class="text-sm text-muted"
+      >
+        {{ t('decisions.preview', { status: t(`decisions.${status}`) }) }}
+      </p>
+    </template>
     <p class="whitespace-pre-line break-words text-sm leading-7">
       <strong>{{ t('proposal.idea') }}:</strong> {{ proposal.idea }}
     </p>

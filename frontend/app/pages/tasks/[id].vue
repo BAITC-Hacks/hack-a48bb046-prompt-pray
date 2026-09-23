@@ -24,6 +24,8 @@ const conflict = ref(false)
 const localCopy = ref<Record<string, string> | null>(null)
 const proposals = ref<Proposal[]>([])
 const selected = ref<string[]>([])
+const rejected = ref<string[]>([])
+const decision = ref<Decision | null>(null)
 const comment = ref('')
 const proposal = ref({ team_id: '', idea: '', plan: '', prototype_url: '' })
 const owner = computed(() => !!card.value && api.user.value?.id === card.value.business_id)
@@ -31,6 +33,7 @@ const owner = computed(() => !!card.value && api.user.value?.id === card.value.b
 function fillForm() {
   if (!card.value) return
   form.value.title = card.value.title
+  form.value.topic = card.value.topic || 'unspecified'
   for (const field of cardFields) form.value[field.key] = card.value[field.key] || ''
 }
 async function action(work: () => Promise<void>) {
@@ -52,6 +55,8 @@ async function action(work: () => Promise<void>) {
 async function save() {
   const body: Record<string, unknown> = {}
   if (form.value.title !== card.value?.title) body.title = form.value.title
+  const topic = form.value.topic === 'unspecified' ? null : form.value.topic
+  if (topic !== (card.value?.topic ?? null)) body.topic = topic
   for (const field of cardFields) {
     const value = form.value[field.key]?.trim() || null
     if (value !== card.value?.[field.key]) body[field.key] = value
@@ -90,18 +95,30 @@ async function publish() {
 }
 async function sendProposal() {
   await action(async () => {
-    await api.request(`${path}/proposals`, { method: 'POST', body: { ...proposal.value, prototype_url: proposal.value.prototype_url || null } })
+    const submitted = await api.request<Proposal>(`${path}/proposals`, { method: 'POST', body: { ...proposal.value, prototype_url: proposal.value.prototype_url || null } })
+    proposals.value.push(submitted)
     notice.value = 'task.proposalSent'
     proposal.value.idea = ''
     proposal.value.plan = ''
     proposal.value.prototype_url = ''
   })
 }
-async function decide() {
+async function decide(nobody = false) {
   await action(async () => {
-    await api.request<Decision>(`${path}/decisions`, { method: 'POST', body: { selected_proposal_ids: selected.value, comment: comment.value.trim() || null } })
+    const saved = await api.request<Decision>(`${path}/decisions`, { method: 'POST', body: {
+      selected_proposal_ids: nobody ? [] : selected.value,
+      rejected_proposal_ids: nobody ? proposals.value.map(item => item.id) : rejected.value,
+      comment: comment.value.trim() || null
+    } })
+    decision.value = saved
+    selected.value = saved.selected_proposal_ids
+    rejected.value = saved.rejected_proposal_ids
+    comment.value = saved.comment || ''
+    proposals.value = proposals.value.map(item => ({ ...item, status: selected.value.includes(item.id)
+      ? 'selected'
+      : rejected.value.includes(item.id) ? 'rejected' : 'pending' }))
     decisionCount.value = selected.value.length
-    notice.value = decisionCount.value ? 'task.decisionSaved' : 'task.decisionNone'
+    notice.value = decisionCount.value ? 'task.decisionSaved' : nobody ? 'task.decisionNone' : 'decisions.saved'
   })
 }
 await action(async () => {
@@ -115,12 +132,16 @@ await action(async () => {
   card.value = await api.request<Card>(path)
   proposal.value.team_id = api.user.value?.id || ''
   fillForm()
-  if (owner.value) {
+  if (owner.value || api.user.value?.role === 'student') {
     proposals.value = await api.request<Proposal[]>(`${path}/proposals`)
+  }
+  if (owner.value) {
     const decisions = await api.request<Decision[]>(`${path}/decisions`)
     const last = decisions[0]
     if (last) {
+      decision.value = last
       selected.value = last.selected_proposal_ids
+      rejected.value = last.rejected_proposal_ids
       comment.value = last.comment || ''
     }
   }
@@ -202,6 +223,19 @@ await action(async () => {
           compact
         />
       </AppPageHeading>
+      <UBadge
+        color="neutral"
+        variant="subtle"
+      >
+        {{ t(`topics.${card.topic || 'unspecified'}`) }}
+      </UBadge>
+      <UAlert
+        v-if="!owner && (card.rating?.total ?? 0) < 40"
+        color="info"
+        icon="i-lucide-message-circle"
+        :title="t('catalogFilters.lowRatingOpen')"
+        :description="t('catalogFilters.lowRatingHint')"
+      />
       <TasksTaskWorkflow
         v-if="owner && !card.confirmed_at"
         :step="3"
@@ -291,15 +325,32 @@ await action(async () => {
             :to="{ path: '/login', query: { redirect: route.fullPath } }"
             :label="t('task.loginProposal')"
           />
+          <AppCard
+            v-if="api.user.value?.role === 'student' && proposals.length"
+            :title="t('decisions.myProposals')"
+          >
+            <p class="text-sm text-muted">
+              {{ t('decisions.studentHint') }}
+            </p>
+            <TasksTaskProposalCard
+              v-for="(item, index) in proposals"
+              :key="item.id"
+              :proposal="item"
+              :index="index"
+            />
+          </AppCard>
           <TasksTaskProposalSelection
             v-if="owner"
             v-model:selected="selected"
+            v-model:rejected="rejected"
             v-model:comment="comment"
             :proposals="proposals"
+            :decision="decision"
             :task-id="card.id"
             :pending="pending"
             :error="fieldErrors(error).comment"
-            @decide="decide"
+            @decide="decide()"
+            @decide-none="decide(true)"
           />
         </div>
       </div>
