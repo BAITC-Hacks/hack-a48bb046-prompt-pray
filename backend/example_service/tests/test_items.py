@@ -42,3 +42,15 @@ async def test_requires_valid_token(client):
 async def test_validation(client):
     resp = await client.post(API, json={"title": ""}, headers=auth_headers())
     assert resp.status_code == 422
+
+
+async def test_error_contract(client):
+    missing = await client.get(f"{API}/{uuid.uuid4()}", headers=auth_headers())
+    assert missing.json() == {"detail": "Item not found", "code": "not_found"}
+    unauthorized = await client.get(API)
+    assert unauthorized.status_code == 401
+    assert set(unauthorized.json()) == {"detail", "code"}
+    assert unauthorized.json()["code"] == "unauthorized"
+    invalid = await client.post(API, json={"title": ""}, headers=auth_headers())
+    assert invalid.status_code == 422
+    assert isinstance(invalid.json()["detail"], list)
