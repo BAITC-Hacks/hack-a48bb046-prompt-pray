@@ -25,6 +25,8 @@ async def generate_content(
     }
     if payload.instructions is not None:
         body["instructions"] = payload.instructions
+    if settings.OPENAI_MODEL == "gpt-5-nano":
+        body["reasoning"] = {"effort": "minimal"}
     try:
         response = await client.post(
             "https://api.openai.com/v1/responses",

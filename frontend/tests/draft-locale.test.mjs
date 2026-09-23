@@ -29,25 +29,24 @@ async function page(request, query = {}, uiLocale = ref('ru')) {
 }
 
 for (const locale of ['ru', 'kk', 'en']) {
-  test(`draft creation sends ${locale} and retries without changing the saved draft`, async () => {
+  test(`draft creation omits language with ${locale} UI and retries the saved draft`, async () => {
     let created = 0
     let generated = 0
     const form = await page(async (path, options) => {
       if (path === '/catalog/drafts') {
         created++
-        assert.deepEqual(options.body, { description: 'Original description', locale })
+        assert.deepEqual(options.body, { description: 'Original description' })
         return { id: 'draft', ...options.body, card_id: null }
       }
       assert.equal(path, '/catalog/drafts/draft/questions')
       if (++generated === 1) throw new Error('AI temporarily unavailable')
       return [{ id: 'q', question: 'Question?', answer: null }]
-    })
+    }, {}, ref(locale))
     form.state.description = 'Original description'
     form.state.title = 'My title'
-    form.state.locale = locale
     await form.createDraft()
     assert.ok(form.error.value)
-    assert.equal(form.draft.value.locale, locale)
+    assert.equal(form.state.locale, undefined)
     await form.createDraft()
     assert.equal(created, 1)
     assert.equal(generated, 2)
@@ -58,7 +57,7 @@ for (const locale of ['ru', 'kk', 'en']) {
     assert.equal(form.answers.q, 'Unsaved answer', 'Reloading questions must not erase local input')
   })
 
-  test(`reopening ${locale} restores its language and answers without regeneration`, async () => {
+  test(`reopening ${locale} restores content without regeneration`, async () => {
     const form = await page(async (path, options) => {
       assert.equal(options, undefined, 'Reopening must use GET without generating new questions')
       if (path === '/catalog/drafts/saved') {
@@ -67,7 +66,7 @@ for (const locale of ['ru', 'kk', 'en']) {
       assert.equal(path, '/catalog/drafts/saved/questions')
       return [{ id: 'q', question: 'Saved question?', answer: 'Сохранённый ответ' }]
     }, { draft: 'saved' })
-    assert.equal(form.state.locale, locale)
+    assert.equal(form.state.locale, undefined)
     assert.equal(form.state.description, 'Бастапқы мәтін')
     assert.equal(form.answers.q, 'Сохранённый ответ')
     assert.equal(form.questions.value[0].question, 'Saved question?')
@@ -75,15 +74,15 @@ for (const locale of ['ru', 'kk', 'en']) {
 }
 
 for (const locale of ['ru', 'kk', 'en']) {
-  test(`new draft starts in ${locale} and keeps its language when UI changes`, async () => {
+  test(`new draft with ${locale} UI keeps content when UI changes`, async () => {
     const uiLocale = ref(locale)
     const form = await page(async () => {
       throw new Error('No requests expected')
     }, {}, uiLocale)
-    assert.equal(form.state.locale, locale)
+    assert.equal(form.state.locale, undefined)
     form.state.description = 'Unsaved description'
     uiLocale.value = locale === 'en' ? 'kk' : 'en'
-    assert.equal(form.state.locale, locale)
+    assert.equal(form.state.locale, undefined)
     assert.equal(form.state.description, 'Unsaved description')
   })
 }

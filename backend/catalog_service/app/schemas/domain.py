@@ -32,6 +32,7 @@ class EntityRead(Read):
 
 class TaskDraftCreate(Request):
     description: Annotated[str, Field(min_length=1, max_length=32_000)]
+    # Accepted for older clients only; language is inferred from description.
     locale: DraftLocale = "ru"
 
 

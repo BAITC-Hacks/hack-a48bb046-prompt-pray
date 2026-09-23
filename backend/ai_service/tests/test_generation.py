@@ -32,6 +32,15 @@ async def test_authentication(client, provider):
     assert not provider.requests
 
 
+async def test_nano_limits_reasoning_to_leave_room_for_questions(client, provider, monkeypatch):
+    monkeypatch.setattr(settings, "OPENAI_MODEL", "gpt-5-nano")
+    response = await client.post(URL, headers=bearer(), json={"prompt": "Ask clarifying questions"})
+    assert response.status_code == 200
+    sent = json.loads(provider.requests[0].content)
+    assert sent["model"] == "gpt-5-nano"
+    assert sent["reasoning"] == {"effort": "minimal"}
+
+
 @pytest.mark.parametrize("payload", [
     {}, {"prompt": "   "}, {"prompt": "x" * 32001},
     {"prompt": "Hello", "max_output_tokens": 0},

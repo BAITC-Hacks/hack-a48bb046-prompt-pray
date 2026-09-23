@@ -127,7 +127,7 @@ async def test_roles_ownership_and_server_owned_fields(client):
     assert (await client.get(API)).status_code == 200
 
 
-async def test_ai_failure_preserves_draft_and_can_be_retried(client, monkeypatch):
+async def test_ai_failure_preserves_draft_and_uses_fallback(client, monkeypatch):
     from app.services.questions import AIUnavailable
 
     owner, stranger = auth_headers(), auth_headers()
@@ -136,15 +136,17 @@ async def test_ai_failure_preserves_draft_and_can_be_retried(client, monkeypatch
     generator = AsyncMock(side_effect=AIUnavailable())
     monkeypatch.setattr("app.services.catalog.generate_questions", generator)
     failed = await client.post(f"{API}/drafts/{key}/questions", headers=owner)
-    assert failed.status_code == 503
-    assert failed.json()["code"] == "ai_unavailable"
+    assert failed.status_code == 200
+    assert len(failed.json()) == 6
     assert (await client.get(f"{API}/drafts/{key}", headers=owner)).json()["description"] == "Original requirement"
-    assert (await client.get(f"{API}/drafts/{key}/questions", headers=owner)).json() == []
+    assert (await client.get(f"{API}/drafts/{key}/questions", headers=owner)).json() == failed.json()
     generator.side_effect = None
     generator.return_value = [ClarifyingQuestionCreate(field=field, question=f"Describe {field}", position=i)
                               for i, field in enumerate(["data", "users", "constraints"])]
     response = await client.post(f"{API}/drafts/{key}/questions", headers=owner)
     assert response.status_code == 200
+    assert response.json() == failed.json()
+    generator.assert_awaited_once()
     question = response.json()[0]
     assert (await client.patch(f"{API}/questions/{question['id']}", json={"answer": "Forged"}, headers=stranger)).status_code == 403
     assert (await client.get(f"{API}/drafts/{key}/questions", headers=stranger)).status_code == 403

@@ -48,13 +48,13 @@ weights remain 20/20/15/15/10/10/10; no database migration is needed.
 Draft responses include `card_id` (null until assembly). The business account uses
 it to resume either the saved draft or its existing card, including unpublished cards.
 
-`POST /drafts` accepts `{ "description": "...", "locale": "kk" }`. Supported locales
-are exactly `ru` (Russian), `kk` (Kazakh), and `en` (English); omitted `locale` defaults
-to `ru` for older clients. Unsupported locales and explicit null return HTTP 422
-with a validation error for `body.locale`. Both draft GET endpoints and POST responses
-include the persisted `locale`. It is fixed at creation; question generation uses
-this value, not Accept-Language or the current UI language. Descriptions, saved
-questions and answers are never automatically translated or replaced.
+`POST /drafts` accepts `{ "description": "..." }`. Questions use the language of
+that description, independent of the interface and Accept-Language. The optional
+legacy `locale` (ru/kk/en) is accepted but does not override detection. Responses
+retain an inferred `locale` for compatibility with the three offline dictionaries.
+AI detects the source language independently, including other languages. Offline
+detection is best-effort for Russian, Kazakh and English; short or ambiguous text
+may be misclassified. Saved questions and answers are never replaced on reopening.
 
 Catalog startup applies Alembic revisions before accepting requests. Revision
 `0002_locale_version` adds draft locale and card version after the frozen
@@ -66,9 +66,11 @@ PostgreSQL tests require `CATALOG_TEST_POSTGRES_URL`. No database reset is requi
 
 Question generation calls `ai_service` with the user's access token. The AI receives
 the original draft as data and instructions to return at least three questions
-about missing fields. Invalid JSON/fields/positions produce `502 ai_invalid_response`;
-network or upstream errors produce `503 ai_unavailable`. The draft remains saved for
-retry. Existing saved questions are returned without replacement, preserving answers.
+about missing fields. If AI is unavailable, times out, or returns invalid questions,
+the catalog saves six standard questions in the language inferred from the description and returns HTTP 200.
+These ask about structured fields other than the original context; no answers or
+facts are invented. The failure code is logged without provider bodies or credentials.
+Existing saved questions are returned without replacement, preserving answers.
 
 Card assembly copies the original description into `context` and supplied answers
 into their corresponding fields. Explicit request fields override those values.
