@@ -14,8 +14,6 @@ QUESTIONS = {
 
 
 def create_server():
-    failed = set()
-
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass
@@ -26,12 +24,11 @@ def create_server():
                 self.send_error(404)
                 return
             prompt = body["prompt"]
-            # Each test deliberately exercises a failed generation and retry.
-            if prompt not in failed:
-                failed.add(prompt)
-                self.send_error(503, "Controlled first-attempt failure")
+            if "fixture-unavailable" in prompt:
+                self.send_error(503, "Controlled AI outage")
                 return
-            language = next(name for name in QUESTIONS if f"Use {name} for every question." in body["instructions"])
+            assert 'predominant language of the original business draft' in body['instructions']
+            language = "Kazakh" if prompt.startswith("Бізге") else "Russian" if prompt.startswith("Нам") else "English"
             questions = [{"field": field, "question": question, "position": i}
                          for i, (field, question) in enumerate(zip(
                              ["users", "data", "expected_result"], QUESTIONS[language]))]

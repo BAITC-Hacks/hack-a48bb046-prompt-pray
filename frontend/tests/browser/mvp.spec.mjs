@@ -9,6 +9,11 @@ const questions = {
   kk: 'Шешімді кім пайдаланады?',
   en: 'Who will use the solution?'
 }
+const descriptions = {
+  ru: 'Нам нужно сократить время обработки заявок. Менеджеры вручную переносят сообщения в таблицу.',
+  kk: 'Бізге өтінімдерді өңдеу уақытын қысқарту қажет. Қызметкерлер хабарламаларды кестеге қолмен көшіреді.',
+  en: 'We need to reduce request processing time. Managers manually copy email messages into a spreadsheet.'
+}
 const translate = locale => createAppI18n(locale).global.t
 
 async function hydrated(page) {
@@ -95,7 +100,7 @@ for (const locale of ['ru', 'kk', 'en']) {
     await expect(page.getByText(t('validation.description'), { exact: true })).toBeVisible()
     await language(page, alternate)
     await expect(page.getByText(other('validation.description'), { exact: true })).toBeVisible()
-    const description = `Original бизнес мәтіні ${randomUUID()}`
+    const description = `${descriptions[locale]} ${randomUUID()}`
     await page.getByLabel(other('task.problem'), { exact: true }).fill(description)
     await language(page, locale)
     await expect(page.getByLabel(t('task.problem'), { exact: true })).toHaveValue(description)
@@ -105,8 +110,6 @@ for (const locale of ['ru', 'kk', 'en']) {
     const draft = await (await draftResponse).json()
     expect(draft.locale).toBe(locale)
     expect(draft.description).toBe(description)
-    await expect(page.getByText(t('errors.ai_unavailable'), { exact: true })).toBeVisible()
-    await page.getByRole('button', { name: t('task.retry'), exact: true }).click()
     await expect(page.locator('[data-question-card]')).toHaveCount(3)
     const answer = 'Original answer — бастапқы жауап'
     await page.getByLabel(questions[locale], { exact: true }).fill(answer)
@@ -138,6 +141,10 @@ for (const locale of ['ru', 'kk', 'en']) {
     await page.getByRole('button', { name: t('task.publish'), exact: true }).click()
     expect((await publication).ok()).toBe(true)
     await expect(page.getByText(t('task.published'), { exact: true })).toBeVisible()
+    await page.goto('/account')
+    await hydrated(page)
+    await page.locator(`a[href="/tasks/${card.id}"]`).click()
+    await expect(page).toHaveURL(new RegExp(`/tasks/${card.id}$`))
     await page.goto('/catalog')
     await hydrated(page)
     await page.getByRole('link').filter({ has: page.getByRole('heading', { name: title, exact: true }) }).click()
@@ -191,6 +198,17 @@ for (const locale of ['ru', 'kk', 'en']) {
       await expect(boxes).toHaveCount(2)
       await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(count)
     }
+    // AI failure now produces persisted fallback questions instead of an error.
+    const fallbackDraft = await (await page.request.post(`${root}/drafts`, {
+      headers, data: { description: `${descriptions[locale]} fixture-unavailable` }
+    })).json()
+    const fallbackResponse = await page.request.post(`${root}/drafts/${fallbackDraft.id}/questions`, { headers })
+    expect(fallbackResponse.ok()).toBe(true)
+    const fallback = await fallbackResponse.json()
+    expect(fallback.length).toBeGreaterThanOrEqual(3)
+    expect(fallback.every(question => !question.answer)).toBe(true)
+    const reopened = await page.request.get(`${root}/drafts/${fallbackDraft.id}/questions`, { headers })
+    expect(await reopened.json()).toEqual(fallback)
     expect(runtimeErrors).toEqual([])
   })
 }
