@@ -1,10 +1,12 @@
 # Catalog API
 
 All paths below use the gateway prefix `/api/v1/catalog`. DTOs are defined in
-`backend/catalog_service/app/schemas/domain.py`. Errors use `{detail, code}`.
+`backend/catalog_service/app/schemas/domain.py`. Application errors use `{detail, code}`;
+request validation errors use FastAPI's HTTP 422 response with a `detail` array.
 
 | Method | Path | Access | Request / response |
 |---|---|---|---|
+| GET | `/health` | authenticated | readiness with database check, 200/503 |
 | POST | `/drafts` | business | `TaskDraftCreate` → `TaskDraftRead`, 201 |
 | GET | `/drafts` | business | own `TaskDraftRead[]` |
 | GET | `/drafts/{id}` | owner | `TaskDraftRead` |
@@ -71,6 +73,9 @@ retry. Existing saved questions are returned without replacement, preserving ans
 Card assembly copies the original description into `context` and supplied answers
 into their corresponding fields. Explicit request fields override those values.
 Missing fields stay empty; no factual content is invented. The client supplies a title.
+The API permits assembly without generating questions or supplying answers; the
+three-question minimum applies to generation results, not as a publication gate.
+Human confirmation is still required before publication.
 A draft has at most one card. Editing a card recomputes all seven rating components,
 clears confirmation and removes the publication until the business confirms and
 publishes the edited content again. Existing proposals and decision history remain.
@@ -101,13 +106,13 @@ return 422. Publish now requires a JSON body. There is no unprotected legacy wri
 path. Deploy backend and frontend together; update external clients and refresh
 old tabs. The repository smoke script and integration tests use the new contract.
 
-Existing cards receive version 1 through the additive `migrate_card_version`
-startup upgrade. It preserves content, ratings and publication and is idempotent.
-Back up the database and run upgrades with a single service instance. T-15 is not
-available on this baseline: integrate `upgrade_card_version(connection)` into a
-versioned revision when it lands, removing the startup hook in that same change.
-SQLite migrations and concurrent requests are tested. PostgreSQL runtime validation
-and the final T-15 migration integration remain outstanding.
+Existing cards receive version 1 through Alembic revision `0002_locale_version`,
+which invokes `upgrade_card_version(connection)`. Catalog startup runs Alembic
+upgrade to `head`; there is no separate card-version startup hook. Content,
+ratings and publication are preserved. Back up the database before upgrading.
+Run SQLite upgrades with a single service instance; PostgreSQL migrations use a
+transactional advisory lock. PostgreSQL migration tests require
+`CATALOG_TEST_POSTGRES_URL`; a SQLite-only run does not validate PostgreSQL.
 
 Proposals require `team_id` (UUID), `idea`, `plan`, and an optional HTTP(S)
 `prototype_url`. Teams have no separate membership system in this MVP: `team_id`
