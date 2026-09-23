@@ -30,16 +30,17 @@ const student = await account('student')
 const root = '/api/gateway/catalog'
 const { data: draft } = await call(`${root}/drafts`, { ...owner, method: 'POST', body: { description: 'Integration test: sales report' }, status: 201 })
 assert.equal(draft.card_id, null)
-assert.equal(draft.locale, 'ru')
+assert.equal(draft.locale, 'en')
+const descriptions = { ru: 'Нам нужна помощь с обработкой заявок', kk: 'Бізге өтінімдерді өңдеу қажет', en: 'We need help processing requests' }
 for (const locale of ['ru', 'kk', 'en']) {
   const { data: localized } = await call(`${root}/drafts`, {
-    ...owner, method: 'POST', body: { description: 'Original description', locale }, status: 201
+    ...owner, method: 'POST', body: { description: descriptions[locale] }, status: 201
   })
   assert.equal(localized.locale, locale)
   assert.equal((await call(`${root}/drafts/${localized.id}`, owner)).data.locale, locale)
   const reopened = await fetch(`${base}/tasks/new?draft=${localized.id}`, { headers: { Cookie: owner.cookie } })
   assert.equal(reopened.status, 200)
-  assert.ok((await reopened.text()).includes('Original description'))
+  assert.ok((await reopened.text()).includes(descriptions[locale]))
 }
 await call(`${root}/drafts`, {
   ...owner, method: 'POST', body: { description: 'Unsupported language', locale: 'de' }, status: 422
@@ -52,7 +53,7 @@ const { data: drafts } = await call(`${root}/drafts`, owner)
 assert.equal(drafts.find(item => item.id === draft.id).card_id, card.id)
 const page = await fetch(`${base}/account`, { headers: { Cookie: owner.cookie }, redirect: 'manual' })
 assert.equal(page.status, 200)
-assert.ok((await page.text()).includes(`/tasks/${card.id}`), 'SSR account links to saved card')
+// The dashboard now loads drafts after mount; its card links are checked in Playwright.
 const resume = await fetch(`${base}/tasks/new?draft=${draft.id}`, { headers: { Cookie: owner.cookie }, redirect: 'manual' })
 assert.equal(resume.status, 302, (await resume.text()).slice(0, 3000))
 assert.equal(resume.headers.get('location'), `/tasks/${card.id}`)

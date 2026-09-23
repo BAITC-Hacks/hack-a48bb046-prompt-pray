@@ -1,7 +1,7 @@
 """Integration smoke test with disposable databases and local Nuxt/FastAPI servers.
 
 Run: .venv/Scripts/python.exe scripts/test_frontend.py (frontend deps must be installed).
-AI provider calls are covered separately by catalog_service tests.
+Add --browser for Playwright against a production build and local AI fixture.
 """
 import os
 from pathlib import Path
@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from threading import Thread
 import urllib.error
 import urllib.request
 
@@ -20,9 +21,15 @@ SECRET = "integration-test-only-secret-1234567890"
 
 
 def main():
+    browser = "--browser" in sys.argv
     sys.stdout.reconfigure(errors="replace")
     processes = []
     logs = []
+    ai = None
+    if browser:
+        from browser_ai_fixture import create_server
+        ai = create_server()
+        Thread(target=ai.serve_forever, daemon=True).start()
     with tempfile.TemporaryDirectory(prefix="ai-sana-integration-") as directory:
         sockets = [socket.socket() for _ in range(4)]
         try:
@@ -40,6 +47,9 @@ def main():
                "AUTH_TEST_FRONTEND": f"http://127.0.0.1:{frontend_port}",
                "AUTH_TEST_GATEWAY": f"http://127.0.0.1:{gateway_port}/api/v1",
                "AUTH_TEST_JWT_SECRET": SECRET, "NUXT_TELEMETRY_DISABLED": "1"}
+        if ai:
+            env["AI_SERVICE_URL"] = f"http://127.0.0.1:{ai.server_port}"
+            env["BROWSER_TEST_BASE_URL"] = env["AUTH_TEST_FRONTEND"]
         node = shutil.which("node")
         if not node:
             raise RuntimeError("Node.js is required")
@@ -71,8 +81,17 @@ def main():
             wait(f"http://127.0.0.1:{auth_port}/health")
             wait(f"http://127.0.0.1:{catalog_port}/health")
             wait(f"http://127.0.0.1:{gateway_port}/healthz")
-            launch("nuxt", [node, "node_modules/nuxt/bin/nuxt.mjs", "dev", "--host", "127.0.0.1", "--port", str(frontend_port)], FRONTEND)
+            if browser:
+                if not (FRONTEND / ".output/server/index.mjs").exists():
+                    raise RuntimeError("Run pnpm build in frontend before browser tests")
+                launch("nuxt", [node, ".output/server/index.mjs"], FRONTEND,
+                       {"HOST": "127.0.0.1", "PORT": str(frontend_port)})
+            else:
+                launch("nuxt", [node, "node_modules/nuxt/bin/nuxt.mjs", "dev", "--host", "127.0.0.1", "--port", str(frontend_port)], FRONTEND)
             wait(f"http://127.0.0.1:{frontend_port}/api/gateway/healthz")
+            if browser:
+                subprocess.run([node, "node_modules/@playwright/test/cli.js", "test"],
+                               cwd=FRONTEND, env=env, check=True, timeout=600)
             for test in ["auth.integration.mjs", "catalog.integration.mjs"]:
                 subprocess.run([node, f"tests/{test}"], cwd=FRONTEND, env=env, check=True, timeout=180)
         except Exception:
@@ -92,6 +111,9 @@ def main():
                     process.wait(timeout=15)
             for _, log in logs:
                 log.close()
+            if ai:
+                ai.shutdown()
+                ai.server_close()
 
 
 if __name__ == "__main__":

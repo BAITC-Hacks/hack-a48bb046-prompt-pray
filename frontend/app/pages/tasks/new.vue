@@ -206,6 +206,7 @@ if (typeof route.query.draft === 'string') {
                 required
               >
                 <UTextarea
+                  id="draft-description"
                   v-model="state.description"
                   :disabled="!!draft || pending"
                   :placeholder="t('task.placeholder')"
@@ -333,6 +334,7 @@ if (typeof route.query.draft === 'string') {
                 required
               >
                 <UInput
+                  id="draft-title"
                   v-model="state.title"
                   :disabled="pending"
                   :maxlength="200"
