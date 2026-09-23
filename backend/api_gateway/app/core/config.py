@@ -27,8 +27,10 @@ class Settings(BaseServiceSettings):
     # Адреса сервисов внутри docker-сети (для локального запуска — localhost)
     AUTH_SERVICE_URL: str = "http://localhost:8001"
     EXAMPLE_SERVICE_URL: str = "http://localhost:8002"
+    CATALOG_SERVICE_URL: str = "http://localhost:8004"
     AI_SERVICE_URL: str = "http://localhost:8003"
     AI_UPSTREAM_TIMEOUT: float = Field(default=65.0, gt=0)
+    CATALOG_UPSTREAM_TIMEOUT: float = Field(default=75.0, gt=0)
     UPSTREAM_TIMEOUT: float = 10.0
 
     # Список через запятую или JSON-массив. В production обязателен и без "*".
@@ -66,6 +68,7 @@ settings = Settings()
 SERVICES: tuple[ServiceRoute, ...] = (
     ServiceRoute("auth", settings.AUTH_SERVICE_URL, prefixes=("auth", "users")),
     ServiceRoute("example", settings.EXAMPLE_SERVICE_URL, prefixes=("items",)),
+    ServiceRoute("catalog", settings.CATALOG_SERVICE_URL, prefixes=("catalog",), timeout=settings.CATALOG_UPSTREAM_TIMEOUT),
     ServiceRoute("ai", settings.AI_SERVICE_URL, prefixes=("ai",), timeout=settings.AI_UPSTREAM_TIMEOUT),
 )
 
@@ -77,5 +80,6 @@ PUBLIC_ENDPOINTS: frozenset[tuple[str, str]] = frozenset(
         ("POST", f"{settings.API_V1_STR}/auth/register"),
         ("POST", f"{settings.API_V1_STR}/auth/login"),
         ("POST", f"{settings.API_V1_STR}/auth/refresh"),
+        ("GET", f"{settings.API_V1_STR}/catalog"),
     }
 )
