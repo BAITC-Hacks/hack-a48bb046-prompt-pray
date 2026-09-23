@@ -8,12 +8,14 @@ from . import models  # noqa: F401  (регистрирует модели в Ba
 from .api.router import api_router
 from .core.config import settings
 from .db.session import db
+from .db.migrations import migrate_user_role
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await db.wait_until_ready()
     await db.create_tables()
+    await migrate_user_role(db.engine)
     yield
     await db.dispose()
 
