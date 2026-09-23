@@ -162,6 +162,8 @@ async function logout() {
           />
         </aside>
         <div class="min-w-0 space-y-6">
+          <BusinessRewards />
+          <ProgressLeaderboard />
           <section
             class="relative overflow-hidden rounded-2xl border border-primary/20 bg-primary/5 p-6 sm:p-8"
             aria-labelledby="next-step-title"

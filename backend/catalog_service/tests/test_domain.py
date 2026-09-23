@@ -40,6 +40,7 @@ async def test_tables_relationships_and_serialization(db):
     assert set(tables) == {
         "task_drafts", "clarifying_questions", "task_cards", "rating_breakdowns",
         "catalog_entries", "proposals", "selection_decisions", "selection_decision_proposals",
+        "reward_events", "daily_visits", "coin_transactions", "action_days",
     }
     business_id = uuid4()
     async with db.session_factory() as session:

@@ -23,14 +23,28 @@ async function page(request) {
     computed, useAppI18n: () => ({ t: key => key, n: value => String(value), locale: ref('ru') }),
     useSeoMeta: () => {}, useTemplateRef: () => ref(null), useLocalizedForm: () => {},
     useApiMessages: () => ({ errorMessage: () => '', fieldErrors: () => ({}) }),
+    useRewardFeedback: () => ({ track: work => work() }),
     ref, useApi: () => ({ request, user: ref({ id: 'owner', role: 'business' }) }),
     useRoute: () => ({ params: { id: 'task' } })
   }
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
   return new AsyncFunction('exports', 'require', ...Object.keys(globals),
-    `${compile(source)}\nreturn { card, form, error, conflict, localCopy, save, publish, action, reloadLatest, restoreLocalText }`
+    `${compile(source)}\nreturn { card, form, error, conflict, localCopy, save, publish, action, reloadLatest, restoreLocalText, hasChanges, filledCount }`
   )({}, name => name === '~/types/catalog' ? types : require(name), ...Object.values(globals))
 }
+
+test('review tracks unsaved edits and filled sections without changing the saved card', async () => {
+  const state = await page(async path => path.endsWith('/task') ? { ...initial } : [])
+  assert.equal(state.hasChanges.value, false)
+  assert.equal(state.filledCount.value, 0)
+  state.form.value.title = 'Updated title'
+  state.form.value.context = '  A business need  '
+  state.form.value.data = '   '
+  assert.equal(state.hasChanges.value, true)
+  assert.equal(state.filledCount.value, 1)
+  assert.equal(state.card.value.title, 'Original')
+  assert.equal(state.card.value.context, null)
+})
 
 for (const operation of ['PATCH', 'confirm', 'publish']) {
   test(`${operation} conflict keeps input and requires explicit recovery`, async () => {

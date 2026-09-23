@@ -16,6 +16,31 @@ from ..services.catalog import own, require_role
 api_router = APIRouter(prefix="/catalog", tags=["catalog"])
 
 
+@api_router.get("/gamification")
+async def gamification(
+    month: str = Query(..., pattern=r"^[1-9][0-9]{3}-(0[1-9]|1[0-2])$"),
+    user=Depends(get_current_user), service=Depends(get_service),
+):
+    from ..services.rewards import progress
+    if user.role != "student":
+        require_role(user, "business")
+    return await progress(service.session, user.id, month, user.role)
+
+
+@api_router.post("/gamification/check-in")
+async def check_in(user=Depends(get_current_user), service=Depends(get_service)):
+    from ..services.rewards import check_in
+    if user.role != "student":
+        require_role(user, "business")
+    return await check_in(service.session, user.id)
+
+
+@api_router.get("/gamification/leaderboard")
+async def leaderboard(user=Depends(get_current_user), service=Depends(get_service)):
+    from ..services.rewards import leaderboard
+    return await leaderboard(service.session, user.id)
+
+
 @api_router.get("/health", dependencies=[Depends(get_current_user)])
 async def catalog_health():
     """Authenticated readiness probe reachable through the gateway."""

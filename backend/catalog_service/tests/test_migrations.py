@@ -51,7 +51,7 @@ async def snapshot(engine):
 
 async def assert_head(engine):
     async with engine.connect() as connection:
-        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "0002_locale_version"
+        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "0004_engagement"
         assert await connection.run_sync(
             lambda conn: compare_metadata(MigrationContext.configure(conn), Base.metadata)
         ) == []

@@ -7,6 +7,7 @@ import type { Card, CatalogEntry, Proposal, Decision } from '~/types/catalog'
 const { t, n } = useAppI18n()
 
 const api = useApi()
+const rewards = useRewardFeedback()
 const { errorMessage, fieldErrors } = useApiMessages()
 const route = useRoute()
 const path = `/catalog/tasks/${route.params.id}`
@@ -27,6 +28,11 @@ const selected = ref<string[]>([])
 const comment = ref('')
 const proposal = ref({ team_id: '', idea: '', plan: '', prototype_url: '' })
 const owner = computed(() => !!card.value && api.user.value?.id === card.value.business_id)
+const filledCount = computed(() => cardFields.filter(field => form.value[field.key]?.trim()).length)
+const hasChanges = computed(() => !!card.value && (
+  form.value.title !== card.value.title
+  || cardFields.some(field => (form.value[field.key]?.trim() || null) !== card.value?.[field.key])
+))
 
 function fillForm() {
   if (!card.value) return
@@ -34,6 +40,7 @@ function fillForm() {
   for (const field of cardFields) form.value[field.key] = card.value[field.key] || ''
 }
 async function action(work: () => Promise<void>) {
+  if (pending.value) return
   error.value = null
   notice.value = ''
   pending.value = true
@@ -76,7 +83,7 @@ function restoreLocalText() {
   notice.value = 'task.textRestored'
 }
 async function publish() {
-  await action(async () => {
+  await action(() => rewards.track(async () => {
     await save()
     card.value = await api.request<Card>(`${path}/confirm`, {
       method: 'POST', body: { confirmed: true, expected_version: card.value!.version }
@@ -86,23 +93,23 @@ async function publish() {
     })
     card.value = entry.task
     notice.value = 'task.published'
-  })
+  }))
 }
 async function sendProposal() {
-  await action(async () => {
+  await action(() => rewards.track(async () => {
     await api.request(`${path}/proposals`, { method: 'POST', body: { ...proposal.value, prototype_url: proposal.value.prototype_url || null } })
     notice.value = 'task.proposalSent'
     proposal.value.idea = ''
     proposal.value.plan = ''
     proposal.value.prototype_url = ''
-  })
+  }))
 }
 async function decide() {
-  await action(async () => {
+  await action(() => rewards.track(async () => {
     await api.request<Decision>(`${path}/decisions`, { method: 'POST', body: { selected_proposal_ids: selected.value, comment: comment.value.trim() || null } })
     decisionCount.value = selected.value.length
     notice.value = decisionCount.value ? 'task.decisionSaved' : 'task.decisionNone'
-  })
+  }))
 }
 await action(async () => {
   if (!api.user.value) {
@@ -193,8 +200,8 @@ await action(async () => {
     </UCard>
     <template v-if="card">
       <AppPageHeading
-        :title="card.title"
-        :eyebrow="t('task.title')"
+        :title="owner && !card.confirmed_at ? t('workflow.publish') : card.title"
+        :eyebrow="owner ? t('review.eyebrow') : t('task.title')"
         icon="i-lucide-file-text"
       >
         <TasksTaskRating
@@ -202,13 +209,32 @@ await action(async () => {
           compact
         />
       </AppPageHeading>
-      <TasksTaskWorkflow
+      <div
         v-if="owner && !card.confirmed_at"
-        :step="3"
-      />
+        class="rounded-2xl border border-default bg-default p-5 sm:p-6"
+      >
+        <TasksTaskWorkflow :step="3" />
+      </div>
+      <p
+        v-if="owner"
+        class="max-w-3xl text-sm leading-7 text-muted"
+      >
+        {{ t('review.intro') }}
+      </p>
       <div class="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <aside class="space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-start-1">
           <TasksTaskRating :rating="card.rating" />
+          <p
+            v-if="owner && hasChanges"
+            class="flex items-start gap-2 px-1 text-xs leading-5 text-muted"
+            role="status"
+          >
+            <UIcon
+              name="i-lucide-refresh-cw"
+              class="mt-0.5 size-4 shrink-0"
+            />
+            {{ t('review.ratingHint') }}
+          </p>
           <nav
             :aria-label="t('task.title')"
             class="hidden rounded-2xl border border-default bg-default p-3 lg:block"
@@ -221,8 +247,9 @@ await action(async () => {
             >
               {{ t(`fields.${field.key}`) }}
               <UIcon
-                name="i-lucide-chevron-right"
+                :name="owner ? form[field.key]?.trim() ? 'i-lucide-circle-check' : 'i-lucide-circle-dashed' : 'i-lucide-chevron-right'"
                 class="size-3.5 shrink-0"
+                :class="owner && form[field.key]?.trim() ? 'text-primary' : ''"
                 aria-hidden="true"
               />
             </a>
@@ -243,36 +270,87 @@ await action(async () => {
             ref="cardForm"
             :state="form"
             :schema="z.object({ title: z.string({ error: t('validation.required') }).trim().min(1, t('validation.title')).max(200, t('validation.max', { max: 200 })) })"
-            data-app-panel
-            class="space-y-6"
+            class="overflow-hidden rounded-2xl border border-default bg-default"
             @submit="action(async () => { await save(); notice = 'task.cardSaved' })"
           >
-            <TasksTaskCardFields
-              v-model="form"
-              :errors="fieldErrors(error)"
-            />
-            <div class="flex flex-wrap gap-3 border-t border-default pt-6">
-              <UButton
-                type="submit"
-                :label="t('task.saveRating')"
-                icon="i-lucide-save"
-                size="lg"
-                color="neutral"
-                variant="outline"
-                :loading="pending"
-                :disabled="conflict"
-              />
-              <UButton
-                :label="t('task.publish')"
-                icon="i-lucide-arrow-up-right"
-                size="lg"
-                :disabled="pending || conflict || !form.title?.trim()"
-                @click="publish"
-              />
+            <div class="space-y-5 border-b border-default p-6 sm:px-8">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <span class="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <UIcon
+                      name="i-lucide-file-check-2"
+                      class="size-5"
+                    />
+                  </span>
+                  <div>
+                    <h2 class="font-semibold text-highlighted">
+                      {{ t('review.cardTitle') }}
+                    </h2>
+                    <p class="mt-1 text-xs text-muted">
+                      {{ t('review.filled', { count: filledCount, total: cardFields.length }) }}
+                    </p>
+                  </div>
+                </div>
+                <UBadge
+                  :icon="hasChanges ? 'i-lucide-pencil' : 'i-lucide-cloud-check'"
+                  color="neutral"
+                  variant="soft"
+                  role="status"
+                >
+                  {{ hasChanges ? t('review.unsaved') : t('task.saved') }}
+                </UBadge>
+              </div>
             </div>
-            <p class="text-xs leading-6 text-muted">
-              {{ t('task.consent') }}
-            </p>
+            <div class="p-6 sm:p-8">
+              <fieldset
+                :disabled="pending"
+                class="space-y-7"
+              >
+                <TasksTaskCardFields
+                  v-model="form"
+                  :errors="fieldErrors(error)"
+                />
+              </fieldset>
+            </div>
+            <div class="space-y-4 border-t border-default bg-muted/35 p-6 sm:p-8">
+              <div class="flex items-start gap-3">
+                <UIcon
+                  name="i-lucide-globe"
+                  class="mt-1 size-5 shrink-0 text-primary"
+                />
+                <div>
+                  <h3 class="font-semibold text-highlighted">
+                    {{ t('review.publishTitle') }}
+                  </h3>
+                  <p class="mt-1 text-sm leading-6 text-muted">
+                    {{ t('review.publishHint') }}
+                  </p>
+                </div>
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <UButton
+                  type="submit"
+                  :label="t('task.saveRating')"
+                  icon="i-lucide-save"
+                  size="lg"
+                  color="neutral"
+                  variant="outline"
+                  :loading="pending"
+                  :disabled="conflict"
+                />
+                <UButton
+                  :label="t('task.publish')"
+                  icon="i-lucide-send"
+                  size="lg"
+                  :loading="pending"
+                  :disabled="pending || conflict || !form.title?.trim() || form.title.trim().length > 200"
+                  @click="publish"
+                />
+              </div>
+              <p class="text-xs leading-6 text-muted">
+                {{ t('task.consent') }}
+              </p>
+            </div>
           </UForm>
           <TasksTaskDetails
             v-else

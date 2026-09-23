@@ -27,6 +27,7 @@ test('auth outage preserves session, retries in place, and redirects only on 401
   let error = { status: 503, code: 'upstream_unavailable' }
   const redirects = []
   const { useAuthAvailability } = load('../app/composables/useAuthAvailability.ts', {
+    useNuxtApp: () => ({ runWithContext: callback => callback() }),
     useState: states(),
     useApi: () => ({ user, request: async () => {
       if (error) throw error

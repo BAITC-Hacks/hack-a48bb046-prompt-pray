@@ -19,6 +19,9 @@ pnpm test:browser
 ```
 
 `BROWSER_TEST_PYTHON` позволяет указать другой Python с зависимостями backend.
+Для проверки только календаря задайте `BROWSER_TEST_GREP='business activity calendar'`.
+Этот сценарий проверяет огонёк посещения, серию, переключение месяцев, перезагрузку
+страницы и смену языка на реальном API с отдельной тестовой базой.
 Если Chromium скачать не удалось, можно использовать установленный Chrome:
 PowerShell: `$env:BROWSER_TEST_CHANNEL='chrome'`; bash: `export BROWSER_TEST_CHANNEL=chrome`.
 Запуск всегда создаёт отдельные профили браузера, не использует личные сессии.

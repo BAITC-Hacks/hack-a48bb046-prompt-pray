@@ -15,6 +15,7 @@ async function page(request, query = {}, uiLocale = ref('ru')) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText
   const globals = {
+    useTemplateMode: () => ({ enabled: ref(false), prefill: () => {} }),
     computed, useAppI18n: () => ({ t: key => key, n: value => String(value), locale: uiLocale }),
     useSeoMeta: () => {}, useTemplateRef: () => ref(null), useLocalizedForm: () => {},
     useApiMessages: () => ({ errorMessage: () => '', fieldErrors: () => ({}) }),

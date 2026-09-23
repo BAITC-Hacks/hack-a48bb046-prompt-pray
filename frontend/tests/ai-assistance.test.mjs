@@ -14,6 +14,7 @@ async function page(request) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText
   const globals = {
+    useTemplateMode: () => ({ enabled: ref(false), prefill: () => {} }),
     ref, reactive, computed,
     useAppI18n: () => ({ t: key => key }), useSeoMeta: () => {}, definePageMeta: () => {},
     useTemplateRef: () => ref(null), useLocalizedForm: () => {},

@@ -10,6 +10,7 @@ from ..repositories.catalog import CatalogRepository
 from .questions import AIInvalidResponse, AIUnavailable, generate_questions
 from .fallback_questions import fallback_questions
 from .draft_language import detect_draft_locale
+from .rewards import award, award_coins, award_fields, record_action
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,10 @@ class CatalogService:
         fields.update(payload.model_dump(exclude_unset=True))
         card = TaskCard(draft_id=key, business_id=user.id, rating=RatingBreakdown(), **fields)
         self.rate(card)
+        self.session.add(card)
+        await self.session.flush()
+        await award_fields(self.session, card)
+        await record_action(self.session, "business", user.id)
         await self.save(card)
         return await self.card(card.id)
 
@@ -151,9 +156,14 @@ class CatalogService:
 
     async def update(self, key, payload, user):
         async with self.mutate_card(key, payload.expected_version, user) as card:
+            changed = False
             for name, value in payload.model_dump(exclude_unset=True, exclude={"expected_version"}).items():
+                changed = changed or getattr(card, name) != value
                 setattr(card, name, value)
             self.rate(card)
+            await award_fields(self.session, card)
+            if changed:
+                await record_action(self.session, "business", user.id)
             card.confirmed_at = None
             if card.catalog_entry:
                 await self.session.delete(card.catalog_entry)
@@ -175,6 +185,11 @@ class CatalogService:
                 self.session.add(entry)
             else:
                 entry.task = card
+            total = sum(getattr(card.rating, field) for field in WEIGHTS)
+            if total >= 70:
+                await award(self.session, card, "ready_card")
+            if total >= 90:
+                await award(self.session, card, "priority_card")
         entry.task = card  # populate_existing reloads the entry; avoid lazy IO during serialization.
         return entry
 
@@ -186,7 +201,12 @@ class CatalogService:
         values = payload.model_dump()
         if values['prototype_url'] is not None:
             values['prototype_url'] = str(values['prototype_url'])
-        return await self.save(Proposal(task_id=key, user_id=user.id, **values))
+        proposal = Proposal(task_id=key, user_id=user.id, **values)
+        self.session.add(proposal)
+        await self.session.flush()
+        await award_coins(self.session, "student", user.id, key, "proposal_sent")
+        await record_action(self.session, "student", user.id)
+        return await self.save(proposal)
 
     async def decide(self, key, payload, user):
         card = own(await self.card(key), user)
@@ -204,6 +224,12 @@ class CatalogService:
         decision = SelectionDecision(task_id=key, business_id=user.id, comment=payload.comment,
             created_at=created_at,
             selected_proposals=[proposals[key] for key in payload.selected_proposal_ids])
+        if payload.selected_proposal_ids:
+            await award(self.session, card, "solution_selected")
+        for proposal in decision.selected_proposals:
+            await award_coins(self.session, "student", proposal.user_id, key, "proposal_accepted")
+        if previous is None:
+            await record_action(self.session, "business", user.id)
         await self.save(decision)
         await self.session.refresh(decision, ['selected_proposals'])
         return decision

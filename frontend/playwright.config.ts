@@ -6,6 +6,7 @@ if (!process.env.BROWSER_TEST_BASE_URL) {
 
 export default defineConfig({
   testDir: './tests/browser',
+  grep: process.env.BROWSER_TEST_GREP ? new RegExp(process.env.BROWSER_TEST_GREP) : undefined,
   timeout: 120000,
   expect: { timeout: 10000 },
   workers: 1,

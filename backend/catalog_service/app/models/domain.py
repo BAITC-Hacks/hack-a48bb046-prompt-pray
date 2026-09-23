@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Table,
+    CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String, Table,
     Text, UniqueConstraint, Uuid, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -107,6 +107,55 @@ decision_proposals = Table(
     Column("decision_id", ForeignKey("selection_decisions.id"), primary_key=True),
     Column("proposal_id", ForeignKey("proposals.id"), primary_key=True),
 )
+
+
+class RewardEvent(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "reward_events"
+    __table_args__ = (
+        UniqueConstraint("task_id", "kind", name="uq_reward_task_kind"),
+        CheckConstraint("coins > 0 AND reputation > 0", name="ck_reward_positive"),
+    )
+
+    business_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True)
+    task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("task_cards.id"))
+    kind: Mapped[str] = mapped_column(String(32))
+    coins: Mapped[int] = mapped_column(Integer)
+    reputation: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class DailyVisit(Base):
+    __tablename__ = "daily_visits"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    day = mapped_column(Date, primary_key=True)
+
+
+class CoinTransaction(UUIDPrimaryKeyMixin, Base):
+    """Append-only engagement ledger; never used by RatingBreakdown."""
+    __tablename__ = "coin_transactions"
+    __table_args__ = (
+        UniqueConstraint("owner_type", "owner_id", "task_id", "reason", "detail", name="uq_coin_award"),
+        CheckConstraint("amount > 0", name="ck_coin_amount"),
+        CheckConstraint("owner_type IN ('business', 'student')", name="ck_coin_owner"),
+    )
+
+    owner_type: Mapped[str] = mapped_column(String(16))
+    owner_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True)
+    task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("task_cards.id"))
+    reason: Mapped[str] = mapped_column(String(32))
+    detail: Mapped[str] = mapped_column(String(32), default="", server_default="")
+    amount: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ActionDay(Base):
+    __tablename__ = "action_days"
+    __table_args__ = (CheckConstraint("owner_type IN ('business', 'student')", name="ck_action_owner"),)
+
+    owner_type: Mapped[str] = mapped_column(String(16), primary_key=True)
+    owner_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    day = mapped_column(Date, primary_key=True)
 
 
 class Proposal(UUIDPrimaryKeyMixin, TimestampMixin, Base):

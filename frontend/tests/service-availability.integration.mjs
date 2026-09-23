@@ -70,7 +70,7 @@ test('production SSR survives an upstream outage and recovers; proxy origin rema
     assert.doesNotMatch(restoredHtml, /Не удалось проверить сессию/)
     upstreamStatus = 401
     const expired = await fetch(`${base}/account`, { redirect: 'manual' })
-    assert.equal(expired.status, 302)
+    assert.equal(expired.status, 302, `${await expired.text()}\n${logs}`)
     assert.match(expired.headers.get('location'), /^\/login\?redirect=/)
   } finally {
     server.kill()

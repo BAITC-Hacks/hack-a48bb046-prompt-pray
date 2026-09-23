@@ -4,6 +4,12 @@ import * as z from 'zod'
 const { t } = useAppI18n()
 
 const proposal = defineModel<{ team_id: string, idea: string, plan: string, prototype_url: string }>({ required: true })
+const template = useTemplateMode()
+template.prefill(() => {
+  for (const key of ['idea', 'plan', 'prototype_url'] as const) {
+    if (!proposal.value[key].trim()) proposal.value[key] = template.proposal[key]
+  }
+})
 defineProps<{ teamName?: string, pending: boolean, errors?: Record<string, string> }>()
 const emit = defineEmits<{ submit: [] }>()
 const proposalSchema = computed(() => z.object({

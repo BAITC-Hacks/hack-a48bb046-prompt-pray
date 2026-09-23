@@ -24,6 +24,8 @@ async function renderPage(role, saved = false, questions = []) {
     useAppI18n: () => i18n.global,
     useSeoMeta: () => {},
     useLocalizedForm: () => {},
+    useTemplateMode: () => ({ enabled: ref(false), prefill: () => {} }),
+    useRewardFeedback: () => ({ track: work => work() }),
     useApiMessages: () => ({ errorMessage: () => '', fieldErrors: () => ({}) }),
     definePageMeta: () => {},
     useApi: () => ({ user: ref({ role }), request: async path => path.endsWith('/questions') ? questions : { id: 'saved', description: 'Saved description', card_id: null } }),

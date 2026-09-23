@@ -51,6 +51,33 @@ async function login(page, username, locale, target = '/account') {
   return session.access_token
 }
 
+test('business activity calendar persists visits and switches months', async ({ page, request }) => {
+  const username = await account(request, 'business')
+  const token = await login(page, username, 'ru')
+  const t = translate('ru')
+  const calendar = page.getByRole('region', { name: t('rewards.title') })
+  await expect(calendar).toBeVisible()
+  await expect(calendar).toHaveAttribute('aria-busy', 'false')
+  const today = new Date().toISOString().slice(0, 10)
+  await expect(calendar.getByRole('button', { name: new RegExp(`^${today}: ${t('rewards.visited')}`) })).toBeVisible()
+  const month = today.slice(0, 7)
+  const headers = { Authorization: `Bearer ${token}` }
+  const response = await page.request.get(`${root}/gamification?month=${month}`, { headers })
+  expect(response.ok()).toBe(true)
+  expect(await response.json()).toMatchObject({ active_days: 1, current_streak: 1, best_streak: 1, coins: 0 })
+  const previous = page.waitForResponse(r => r.url().includes('/catalog/gamification?month=') && !r.url().endsWith(month))
+  await calendar.getByRole('button', { name: t('rewards.previous') }).click()
+  expect((await previous).ok()).toBe(true)
+  await expect(calendar).toHaveAttribute('aria-busy', 'false')
+  await page.reload()
+  await hydrated(page)
+  await expect(calendar).toHaveAttribute('aria-busy', 'false')
+  await expect(calendar.getByRole('button', { name: new RegExp(`^${today}: ${t('rewards.visited')}`) })).toBeVisible()
+  await expect(page.getByRole('heading', { name: t('rewards.leaderboard') })).toBeVisible()
+  await language(page, 'en')
+  await expect(page.getByRole('heading', { name: translate('en')('rewards.title') })).toBeVisible()
+})
+
 for (const locale of ['ru', 'kk', 'en']) {
   test(`${locale}: SSR, forms, low-rating task, proposals and manual decisions`, async ({ browser, page, request, baseURL }) => {
     const t = translate(locale)

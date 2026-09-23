@@ -29,7 +29,8 @@ for (const page of ['login', 'signup']) {
         useApi: () => ({}),
         useApiMessages: () => ({ errorMessage: () => '' }),
         useRoute: () => ({ query: {} }),
-        useLocalizedForm: () => {}
+        useLocalizedForm: () => {},
+        useTemplateMode: () => ({ enabled: ref(false), prefill: () => {} })
       }
       const exports = {}
       const testRequire = name => name === 'vue' ? nuxtRequire(name) : require(name)

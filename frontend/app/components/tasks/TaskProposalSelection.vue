@@ -5,6 +5,10 @@ const { t, n } = useAppI18n()
 
 const selected = defineModel<string[]>('selected', { required: true })
 const comment = defineModel<string>('comment', { required: true })
+const template = useTemplateMode()
+template.prefill(() => {
+  if (!comment.value.trim()) comment.value = template.comment
+})
 defineProps<{ proposals: Proposal[], pending: boolean, error?: string, taskId?: string }>()
 const emit = defineEmits<{ decide: [] }>()
 </script>

@@ -9,14 +9,15 @@ definePageMeta({ layout: 'auth' })
 const api = useApi()
 const { errorMessage } = useApiMessages()
 const route = useRoute()
+const template = useTemplateMode()
 const pending = ref(false)
 const error = ref<ApiError | null>(null)
 const role = ref<'business' | 'student'>('student')
 const signup = false
 const fields = computed(() => [
-  ...(signup ? [{ name: 'username', type: 'text' as const, label: t('auth.username'), required: true }] : []),
-  { name: 'email', type: 'text' as const, label: t('auth.identifier'), required: true },
-  { name: 'password', type: 'password' as const, label: t('auth.password'), required: true }
+  ...(signup ? [{ name: 'username', type: 'text' as const, label: t('auth.username'), defaultValue: template.enabled.value ? template.auth.username : undefined, required: true }] : []),
+  { name: 'email', type: 'text' as const, label: t('auth.identifier'), defaultValue: template.enabled.value ? template.auth.email : undefined, required: true },
+  { name: 'password', type: 'password' as const, label: t('auth.password'), defaultValue: template.enabled.value ? template.auth.password : undefined, required: true }
 ])
 const schema = computed(() => z.object({
   username: signup ? z.string({ error: t('validation.required') }).min(3, t('validation.username')).max(50, t('validation.username')).regex(/^[A-Za-z0-9_.-]+$/, t('validation.username')) : z.string({ error: t('validation.required') }).optional(),

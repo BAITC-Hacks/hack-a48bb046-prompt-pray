@@ -8,11 +8,17 @@ const { t } = useAppI18n()
 definePageMeta({ middleware: 'auth' })
 useSeoMeta({ title: () => t('task.newTitle'), description: () => t('task.newDescription') })
 const api = useApi()
+const rewards = useRewardFeedback()
 const { errorMessage, fieldErrors } = useApiMessages()
 const canCreateTask = computed(() => api.user.value?.role === 'business')
 const app = useNuxtApp()
 const route = useRoute()
 const state = reactive({ description: '', title: '' })
+const template = useTemplateMode()
+template.prefill(() => {
+  if (!route.query.draft && !state.description) state.description = template.description
+  if (!state.title) state.title = template.card.title
+})
 const schema = computed(() => z.object({ description: z.string({ error: t('validation.required') }).trim().min(1, t('validation.description')).max(32000, t('validation.max', { max: 32000 })) }))
 const draftForm = useTemplateRef('draftForm')
 const titleForm = useTemplateRef('titleForm')
@@ -80,7 +86,7 @@ async function loadQuestions() {
   generatingQuestions.value = true
   try {
     questions.value = await api.request<Question[]>(`/catalog/drafts/${draft.value!.id}/questions`, { method: 'POST' })
-    for (const question of questions.value) answers[question.id] ??= question.answer || ''
+    for (const question of questions.value) answers[question.id] ??= question.answer || (template.enabled.value ? template.card[question.field] : '')
   } finally {
     generatingQuestions.value = false
   }
@@ -99,7 +105,7 @@ async function createDraft() {
       draft.value = await api.request<Draft>('/catalog/drafts', {
         method: 'POST', body: { description: state.description }
       })
-      await app.runWithContext(() => navigateTo({ query: { draft: draft.value!.id } }, { replace: true }))
+      await app.runWithContext(() => navigateTo({ query: { ...route.query, draft: draft.value!.id } }, { replace: true }))
     }
     await saveDescription()
     if (!questions.value.length) await loadQuestions()
@@ -134,7 +140,7 @@ async function assemble() {
         }
       }
       if (!state.title.trim()) await suggestTitle()
-      const card = await api.request<Card>(`/catalog/drafts/${draft.value!.id}/card`, { method: 'POST', body: { title: state.title } })
+      const card = await rewards.track(() => api.request<Card>(`/catalog/drafts/${draft.value!.id}/card`, { method: 'POST', body: { title: state.title } }))
       await app.runWithContext(() => navigateTo(`/tasks/${card.id}`))
     } finally {
       assemblingCard.value = false
@@ -150,9 +156,14 @@ if (typeof route.query.draft === 'string') {
     }
     state.description = draft.value.description
     questions.value = await api.request<Question[]>(`/catalog/drafts/${draft.value.id}/questions`)
-    for (const question of questions.value) answers[question.id] = question.answer || ''
+    for (const question of questions.value) answers[question.id] = question.answer || (template.enabled.value ? template.card[question.field] : '')
   })
 }
+template.prefill(() => {
+  for (const question of questions.value) {
+    if (!answers[question.id]?.trim()) answers[question.id] = question.answer || template.card[question.field]
+  }
+})
 </script>
 
 <template>
