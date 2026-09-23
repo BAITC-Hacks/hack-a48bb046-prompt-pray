@@ -70,8 +70,8 @@ def seed_demo(base_url: str) -> None:
             card = request('POST', f"/catalog/drafts/{draft['id']}/card", headers=owner, json=payload)
             path = f"/catalog/tasks/{card['id']}"
             # These are explicitly labelled fixtures, not AI output or real business decisions.
-            request('POST', path + '/confirm', headers=owner, json={'confirmed': True})
-            request('POST', path + '/publish', headers=owner)
+            card = request('POST', path + '/confirm', headers=owner, json={'confirmed': True, 'expected_version': card['version']})
+            request('POST', path + '/publish', headers=owner, json={'expected_version': card['version']})
             cards.append(card['id'])
 
         description = 'Демо-черновик: хочу автоматизировать запись клиентов, пока не знаю с чего начать.'

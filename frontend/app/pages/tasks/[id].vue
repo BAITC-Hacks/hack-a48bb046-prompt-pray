@@ -2,7 +2,7 @@
 import * as z from 'zod'
 import type { ApiError, User } from '~/types/api'
 import { cardFields } from '~/types/catalog'
-import type { Card, Proposal, Decision } from '~/types/catalog'
+import type { Card, CatalogEntry, Proposal, Decision } from '~/types/catalog'
 
 const api = useApi()
 const route = useRoute()
@@ -12,6 +12,8 @@ const error = ref<ApiError | null>(null)
 const pending = ref(false)
 const notice = ref('')
 const form = ref<Record<string, string>>({ title: '' })
+const conflict = ref(false)
+const localCopy = ref<Record<string, string> | null>(null)
 const proposals = ref<Proposal[]>([])
 const selected = ref<string[]>([])
 const comment = ref('')
@@ -31,6 +33,10 @@ async function action(work: () => Promise<void>) {
     await work()
   } catch (cause) {
     error.value = cause as ApiError
+    if (error.value.code === 'catalog_version_conflict') {
+      conflict.value = true
+      localCopy.value = { ...form.value }
+    }
   } finally {
     pending.value = false
   }
@@ -42,14 +48,35 @@ async function save() {
     const value = form.value[field.key]?.trim() || null
     if (value !== card.value?.[field.key]) body[field.key] = value
   }
-  if (Object.keys(body).length) card.value = await api.request<Card>(path, { method: 'PATCH', body })
+  if (Object.keys(body).length) card.value = await api.request<Card>(path, {
+    method: 'PATCH', body: { ...body, expected_version: card.value!.version }
+  })
   fillForm()
+}
+async function reloadLatest() {
+  await action(async () => {
+    const latest = await api.request<Card>(path)
+    localCopy.value = { ...form.value }
+    card.value = latest
+    fillForm()
+    conflict.value = false
+    notice.value = 'Загружена актуальная карточка. Ваш предыдущий текст сохранён ниже для сравнения.'
+  })
+}
+function restoreLocalText() {
+  if (localCopy.value) form.value = { ...localCopy.value }
+  notice.value = 'Ваш текст возвращён в форму. Проверьте отличия перед сохранением.'
 }
 async function publish() {
   await action(async () => {
     await save()
-    card.value = await api.request<Card>(`${path}/confirm`, { method: 'POST', body: { confirmed: true } })
-    await api.request(`${path}/publish`, { method: 'POST' })
+    card.value = await api.request<Card>(`${path}/confirm`, {
+      method: 'POST', body: { confirmed: true, expected_version: card.value!.version }
+    })
+    const entry = await api.request<CatalogEntry>(`${path}/publish`, {
+      method: 'POST', body: { expected_version: card.value.version }
+    })
+    card.value = entry.task
     notice.value = 'Карточка подтверждена и опубликована в каталоге'
   })
 }
@@ -109,6 +136,48 @@ await action(async () => {
       color="success"
       :title="notice"
     />
+    <UAlert
+      v-if="conflict"
+      color="warning"
+      title="Карточка изменена в другой сессии"
+      description="Ваш ввод сохранён. Загрузите актуальную карточку и сравните изменения перед повторным сохранением."
+    >
+      <template #actions>
+        <UButton
+          label="Загрузить актуальную карточку"
+          :loading="pending"
+          @click="reloadLatest"
+        />
+      </template>
+    </UAlert>
+    <UCard v-if="localCopy">
+      <h2 class="font-semibold mb-4">
+        Ваш сохранённый ввод
+      </h2>
+      <p class="whitespace-pre-wrap break-words mb-4">
+        {{ localCopy.title }}
+      </p>
+      <dl class="space-y-3">
+        <template
+          v-for="field in cardFields"
+          :key="field.key"
+        >
+          <dt class="font-medium">
+            {{ field.label }}
+          </dt>
+          <dd class="whitespace-pre-wrap break-words">
+            {{ localCopy[field.key] || 'Не заполнено' }}
+          </dd>
+        </template>
+      </dl>
+      <UButton
+        v-if="!conflict"
+        class="mt-4"
+        label="Вернуть мой текст в форму"
+        :disabled="pending"
+        @click="restoreLocalText"
+      />
+    </UCard>
     <template v-if="card">
       <UPageHeader :title="card.title" />
       <TasksTaskWorkflow
@@ -132,11 +201,12 @@ await action(async () => {
             type="submit"
             label="Сохранить и пересчитать рейтинг"
             :loading="pending"
+            :disabled="conflict"
           />
           <UButton
             label="Подтверждаю — опубликовать"
             variant="outline"
-            :disabled="pending || !form.title?.trim()"
+            :disabled="pending || conflict || !form.title?.trim()"
             @click="publish"
           />
         </div>

@@ -138,12 +138,12 @@ def test_rating_boundaries(score, level, code):
 
 
 def test_patch_distinguishes_omitted_and_cleared_fields():
-    assert TaskCardUpdate().model_dump(exclude_unset=True) == {}
-    assert TaskCardUpdate(context=None).model_dump(exclude_unset=True) == {"context": None}
+    assert TaskCardUpdate(expected_version=1).model_dump(exclude_unset=True) == {"expected_version": 1}
+    assert TaskCardUpdate(expected_version=1, context=None).model_dump(exclude_unset=True) == {"context": None, "expected_version": 1}
     assert TaskCardCreate(title="  Задача  ").title == "Задача"
     for payload in ({"title": None}, {"title": "  "}, {"rating": 100}, {"business_id": str(uuid4())}):
         with pytest.raises(ValidationError):
-            TaskCardUpdate(**payload)
+            TaskCardUpdate(expected_version=1, **payload)
     with pytest.raises(ValidationError):
         TaskDraftCreate(description="   ")
 
@@ -163,8 +163,8 @@ def test_decision_is_explicit_and_prototype_is_http_url():
         with pytest.raises(ValidationError):
             SelectionDecisionCreate(**payload)
     with pytest.raises(ValidationError):
-        TaskCardConfirm(confirmed=False)
-    assert TaskCardConfirm(confirmed=True).confirmed
+        TaskCardConfirm(confirmed=False, expected_version=1)
+    assert TaskCardConfirm(confirmed=True, expected_version=1).confirmed
     proposal = dict(team_id=uuid4(), idea="Идея", plan="План")
     assert ProposalCreate(**proposal).prototype_url is None
     with pytest.raises(ValidationError):

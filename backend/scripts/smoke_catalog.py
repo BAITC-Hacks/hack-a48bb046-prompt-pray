@@ -69,17 +69,17 @@ def run(base_url: str) -> bool:
         card = request("POST", f"{draft_path}/card", expected=201, headers=business,
                        json={"title": f"Smoke sales dashboard {prefix}"})
         task_path = f"{api}/tasks/{card['id']}"
-        request("POST", f"{task_path}/publish", expected=400, headers=business)
+        request("POST", f"{task_path}/publish", expected=400, headers=business, json={"expected_version": card["version"]})
         fields = {
             "context": "Sales reporting", "data": "CSV example", "expected_result": "Dashboard",
             "success_criteria": "Totals match CSV", "constraints": "Two weeks",
             "users": "Sales team", "business_contact": "Smoke business account",
         }
-        updated = request("PATCH", task_path, headers=business, json=fields)
+        updated = request("PATCH", task_path, headers=business, json={**fields, "expected_version": card["version"]})
         assert updated["rating"]["total"] == 100
-        request("POST", f"{task_path}/confirm", headers=business, json={"confirmed": True})
-        request("POST", f"{task_path}/publish", headers=business)
-        request("POST", f"{task_path}/publish", headers=business)
+        confirmed = request("POST", f"{task_path}/confirm", headers=business, json={"confirmed": True, "expected_version": updated["version"]})
+        published = request("POST", f"{task_path}/publish", headers=business, json={"expected_version": confirmed["version"]})
+        request("POST", f"{task_path}/publish", headers=business, json={"expected_version": published["task"]["version"]})
         assert request("GET", task_path)["id"] == card["id"]
         catalog = request("GET", api, params={"limit": 200})
         ratings = [entry["task"]["rating"]["total"] for entry in catalog["items"]]

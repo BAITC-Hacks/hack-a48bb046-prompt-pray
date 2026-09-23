@@ -9,11 +9,12 @@ from sqlalchemy import inspect, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.db.migrate import upgrade
-from app.models import (
+from app.db.migrations.baseline import (
     CatalogEntry, ClarifyingQuestion, Proposal, RatingBreakdown,
     SelectionDecision, TaskCard, TaskDraft,
 )
 from common.db import Base
+from app.db.migrations.baseline import Base as LegacyBase
 
 
 @pytest.fixture(params=["sqlite", "postgresql"])
@@ -44,13 +45,13 @@ async def snapshot(engine):
     async with engine.connect() as connection:
         return {
             table.name: sorted(repr(tuple(row)) for row in (await connection.execute(select(table))).all())
-            for table in Base.metadata.sorted_tables
+            for table in LegacyBase.metadata.sorted_tables
         }
 
 
 async def assert_head(engine):
     async with engine.connect() as connection:
-        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "0001_catalog"
+        assert await connection.scalar(text("SELECT version_num FROM alembic_version")) == "0002_locale_version"
         assert await connection.run_sync(
             lambda conn: compare_metadata(MigrationContext.configure(conn), Base.metadata)
         ) == []
@@ -64,7 +65,7 @@ async def test_new_database_and_repeat_upgrade(migration_engine):
 
 async def test_legacy_upgrade_preserves_every_row_and_relationship(migration_engine):
     async with migration_engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all)
+        await connection.run_sync(LegacyBase.metadata.create_all)
     async with async_sessionmaker(migration_engine)() as session:
         business = uuid4()
         draft = TaskDraft(business_id=business, description="Исходное описание")
@@ -88,9 +89,9 @@ async def test_legacy_upgrade_preserves_every_row_and_relationship(migration_eng
 async def test_unknown_legacy_schema_is_not_stamped(migration_engine, damage):
     async with migration_engine.begin() as connection:
         if damage == "partial":
-            await connection.run_sync(lambda conn: Base.metadata.tables["task_drafts"].create(conn))
+            await connection.run_sync(lambda conn: LegacyBase.metadata.tables["task_drafts"].create(conn))
         else:
-            await connection.run_sync(Base.metadata.create_all)
+            await connection.run_sync(LegacyBase.metadata.create_all)
             await connection.execute(text("ALTER TABLE task_drafts ADD COLUMN unexpected TEXT"))
         await connection.execute(text("INSERT INTO task_drafts (id, business_id, description) VALUES (:id, :business, 'keep')"),
                                  {"id": uuid4().hex, "business": uuid4().hex})

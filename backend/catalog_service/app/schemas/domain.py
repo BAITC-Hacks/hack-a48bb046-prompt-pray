@@ -13,6 +13,7 @@ Content = Annotated[str, Field(min_length=1, max_length=10_000)]
 # A draft plus seven answers and their separating newlines must remain editable.
 CardContent = Annotated[str, Field(min_length=1, max_length=102_007)]
 Title = Annotated[str, Field(min_length=1, max_length=200)]
+DraftLocale = Literal["ru", "kk", "en"]
 
 
 class Request(BaseModel):
@@ -31,11 +32,13 @@ class EntityRead(Read):
 
 class TaskDraftCreate(Request):
     description: Annotated[str, Field(min_length=1, max_length=32_000)]
+    locale: DraftLocale = "ru"
 
 
 class TaskDraftRead(EntityRead):
     business_id: UUID
     description: str
+    locale: DraftLocale
     card_id: UUID | None
 
 
@@ -84,6 +87,7 @@ class TaskCardCreate(CardFields):
 
 
 class TaskCardUpdate(CardFields):
+    expected_version: int = Field(ge=1, strict=True)
     title: Title | None = None
 
     @field_validator("title")
@@ -95,7 +99,12 @@ class TaskCardUpdate(CardFields):
 
 
 class TaskCardConfirm(Request):
+    expected_version: int = Field(ge=1, strict=True)
     confirmed: Literal[True]
+
+
+class TaskCardPublish(Request):
+    expected_version: int = Field(ge=1, strict=True)
 
 
 class RatingBreakdownRead(Read):
@@ -135,6 +144,7 @@ class RatingBreakdownRead(Read):
 
 
 class TaskCardRead(EntityRead):
+    version: int
     draft_id: UUID
     business_id: UUID
     title: str

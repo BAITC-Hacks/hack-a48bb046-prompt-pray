@@ -30,6 +30,20 @@ const student = await account('student')
 const root = '/api/gateway/catalog'
 const { data: draft } = await call(`${root}/drafts`, { ...owner, method: 'POST', body: { description: 'Integration test: sales report' }, status: 201 })
 assert.equal(draft.card_id, null)
+assert.equal(draft.locale, 'ru')
+for (const locale of ['ru', 'kk', 'en']) {
+  const { data: localized } = await call(`${root}/drafts`, {
+    ...owner, method: 'POST', body: { description: 'Original description', locale }, status: 201
+  })
+  assert.equal(localized.locale, locale)
+  assert.equal((await call(`${root}/drafts/${localized.id}`, owner)).data.locale, locale)
+  const reopened = await fetch(`${base}/tasks/new?draft=${localized.id}`, { headers: { Cookie: owner.cookie } })
+  assert.equal(reopened.status, 200)
+  assert.ok((await reopened.text()).includes('Original description'))
+}
+await call(`${root}/drafts`, {
+  ...owner, method: 'POST', body: { description: 'Unsupported language', locale: 'de' }, status: 422
+})
 // AI generation is covered by the service tests with a controlled provider.
 const { data: card } = await call(`${root}/drafts/${draft.id}/card`, { ...owner, method: 'POST', body: { title: 'Integration report' }, status: 201 })
 const task = `${root}/tasks/${card.id}`
@@ -42,8 +56,8 @@ assert.ok((await page.text()).includes(`/tasks/${card.id}`), 'SSR account links 
 const resume = await fetch(`${base}/tasks/new?draft=${draft.id}`, { headers: { Cookie: owner.cookie }, redirect: 'manual' })
 assert.equal(resume.status, 302, (await resume.text()).slice(0, 3000))
 assert.equal(resume.headers.get('location'), `/tasks/${card.id}`)
-await call(`${task}/confirm`, { ...owner, method: 'POST', body: { confirmed: true } })
-await call(`${task}/publish`, { ...owner, method: 'POST' })
+const { data: confirmed } = await call(`${task}/confirm`, { ...owner, method: 'POST', body: { confirmed: true, expected_version: card.version } })
+const { data: published } = await call(`${task}/publish`, { ...owner, method: 'POST', body: { expected_version: confirmed.version } })
 const { data: catalog } = await call(root)
 assert.ok(catalog.items.some(item => item.task_id === card.id))
 await call(task)
@@ -52,7 +66,10 @@ assert.deepEqual((await call(`${task}/decisions`, owner)).data, [])
 await call(`${task}/decisions`, { ...student, method: 'POST', body: { selected_proposal_ids: [proposal.id] }, status: 403 })
 const { data: decision } = await call(`${task}/decisions`, { ...owner, method: 'POST', body: { selected_proposal_ids: [proposal.id] }, status: 201 })
 assert.deepEqual(decision.selected_proposal_ids, [proposal.id])
-await call(task, { ...owner, method: 'PATCH', body: { users: 'Sales team' } })
+await call(task, { ...owner, method: 'PATCH', body: { users: 'Sales team', expected_version: published.task.version } })
+const { data: conflict } = await call(task, { ...owner, method: 'PATCH', body: { users: 'Stale overwrite', expected_version: published.task.version }, status: 409 })
+// Nitro wraps the upstream error in data; useApi normalizes this for the UI.
+assert.equal((conflict.data || conflict).code, 'catalog_version_conflict')
 await call(task, { status: 401 })
 assert.equal((await call(task, owner)).data.rating.total, 30)
 console.log('PASS: Nuxt proxy → gateway → database; SSR draft recovery, publication, low-rating proposals, manual selection, edit unpublishes')
