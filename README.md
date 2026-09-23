@@ -167,6 +167,7 @@ AI-сервис обращается к внешнему провайдеру. B
 | [`backend/`](backend/README.md) | Сервисы, запуск, окружение, базы данных |
 | [`backend/catalog_service/`](backend/catalog_service/README.md) | Предметная логика задач, рейтинга, откликов и решений |
 | [`docs/catalog-api.md`](docs/catalog-api.md) | Контракт каталога и права доступа |
+| [`docs/roadmap.md`](docs/roadmap.md) | Направления развития, этапы и критерии успеха пилота |
 | [`docs/`](docs/README.md) | Архитектура и стандарты API |
 
 ## Автоматические проверки
