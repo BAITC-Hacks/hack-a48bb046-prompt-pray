@@ -57,11 +57,11 @@ const steps = [
       </template>
       <template #bottom>
         <UAlert
-          color="warning"
+          color="primary"
           variant="subtle"
-          icon="i-lucide-flask-conical"
-          title="Интерактивный демонстрационный MVP"
-          description="Сейчас задачи и отклики сохраняются в вашем браузере. Общий каталог подключим после готовности backend."
+          icon="i-lucide-sparkles"
+          title="Хорошее описание — больше возможностей"
+          description="Уточняйте задачу, повышайте её готовность и получайте предложения команд. Перед публикацией вы проверяете и подтверждаете карточку."
           class="max-w-2xl mx-auto mt-12 text-left"
         />
       </template>

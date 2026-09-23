@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
   try {
     const response = await $fetch.raw<Record<string, unknown>>(`${config.gatewayUrl}${path === 'healthz' ? '/healthz' : `/api/v1/${path}`}`, {
       method,
+      retry: 0,
       body,
       query: getQuery(event),
       headers: getHeader(event, 'authorization') ? { authorization: getHeader(event, 'authorization')! } : undefined

@@ -52,7 +52,8 @@ class CatalogService:
 
     async def create_draft(self, payload, user):
         require_role(user, "business")
-        return await self.save(TaskDraft(business_id=user.id, description=payload.description))
+        draft = await self.save(TaskDraft(business_id=user.id, description=payload.description))
+        return await self.repo.draft(draft.id)
 
     async def questions(self, key, user, authorization, settings):
         draft = await self.draft(key, user)

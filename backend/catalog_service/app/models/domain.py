@@ -21,6 +21,10 @@ class TaskDraft(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     card: Mapped["TaskCard | None"] = relationship(back_populates="draft")
 
+    @property
+    def card_id(self) -> uuid.UUID | None:
+        return self.card.id if self.card else None
+
 
 class ClarifyingQuestion(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "clarifying_questions"

@@ -34,6 +34,7 @@ class TaskDraftCreate(Request):
 class TaskDraftRead(EntityRead):
     business_id: UUID
     description: str
+    card_id: UUID | None
 
 
 class ClarifyingQuestionCreate(Request):

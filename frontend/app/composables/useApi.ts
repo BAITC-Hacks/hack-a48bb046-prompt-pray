@@ -1,59 +1,44 @@
-import type { AccessToken, ApiError, User } from '~/types/api'
-
-const refreshing = new WeakMap<object, Promise<void>>()
+import type { ApiError } from '~/types/api'
 
 export function useApi() {
-  const app = useNuxtApp()
+  const session = useSession()
   const config = useRuntimeConfig()
   const fetcher = useRequestFetch()
-  const token = useState<string | null>('access-token', () => null)
-  const user = useState<User | null>('current-user', () => null)
-  const responseCookies = import.meta.server ? useResponseHeader('set-cookie') : null
-  const refreshHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
-
-  async function refresh() {
-    let pending = refreshing.get(app)
-    if (!pending) {
-      pending = $fetch.raw<AccessToken>('/api/gateway/auth/refresh', { method: 'POST', headers: refreshHeaders })
-        .then((result) => {
-          token.value = result._data!.access_token
-          if (import.meta.server && responseCookies) {
-            const cookies = result.headers.getSetCookie()
-            if (cookies.length) responseCookies.value = cookies
-          }
-        })
-        .catch((error) => {
-          token.value = null
-          user.value = null
-          throw error
-        })
-        .finally(() => { refreshing.delete(app) })
-      refreshing.set(app, pending)
-    }
-    await pending
-  }
+  const { token, user, refresh } = session
 
   async function request<T>(path: string, options: {
     method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
     body?: Record<string, unknown>
     query?: Record<string, string | number>
   } = {}, retry = true): Promise<T> {
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\') || path.includes('..')) {
+      throw normalize({ statusCode: 400, data: { detail: 'Ожидался относительный путь API', code: 'invalid_api_path' } })
+    }
+    const initialToken = token.value
+    const auth = path.startsWith('/auth/')
     try {
-      return await fetcher(path, {
-        baseURL: path.startsWith('/auth/') ? '/api/gateway' : config.public.apiBase,
+      if (path === '/auth/logout') {
+        await session.logout()
+        return { ok: true } as T
+      }
+      return await fetcher(auth ? path.replace('/auth/', '/') : path, {
+        baseURL: auth ? '/api/session' : config.public.apiBase,
         ...options,
-        headers: token.value ? { Authorization: `Bearer ${token.value}` } : undefined
+        retry: 0,
+        headers: auth ? { 'X-Requested-With': 'AI-Sana' } : token.value ? { Authorization: `Bearer ${token.value}` } : undefined
       }) as T
     } catch (cause) {
       const response = cause as { statusCode?: number, data?: { detail?: unknown, code?: string, data?: { detail?: unknown, code?: string } } }
       if (response.statusCode === 401 && retry && !path.startsWith('/auth/')) {
         try {
-          await refresh()
-        } catch {
-          throw normalize(response)
+          if (!token.value || token.value === initialToken) await refresh()
+        } catch (error) {
+          const failure = error as { status: number, detail: string, code: string }
+          throw normalize({ statusCode: failure.status, data: failure })
         }
         return request<T>(path, options, false)
       }
+      if (response.statusCode === 401 && !auth) session.clear()
       throw normalize(response)
     }
   }

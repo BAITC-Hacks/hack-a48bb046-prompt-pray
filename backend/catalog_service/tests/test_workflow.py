@@ -31,6 +31,7 @@ async def test_full_workflow_rating_publication_and_manual_selection(client, mon
     draft = await client.post(f"{API}/drafts", json={"description": "Need a sales report"}, headers=owner)
     assert draft.status_code == 201, draft.text
     draft_id = draft.json()["id"]
+    assert draft.json()["card_id"] is None
     assert (await client.get(f"{API}/drafts/{draft_id}", headers=other)).status_code == 403
     generated = await client.post(f"{API}/drafts/{draft_id}/questions", headers=owner)
     assert generated.status_code in (200, 201), generated.text
@@ -44,6 +45,11 @@ async def test_full_workflow_rating_publication_and_manual_selection(client, mon
     assert response.status_code == 201, response.text
     card = response.json()
     key = card["id"]
+    restored = await client.get(f"{API}/drafts/{draft_id}", headers=owner)
+    assert restored.json()["card_id"] == key
+    own_drafts = await client.get(f"{API}/drafts", headers=owner)
+    assert own_drafts.json()[0]["card_id"] == key
+    assert (await client.get(f"{API}/drafts", headers=other)).json() == []
     assert (await client.get(f"{API}/tasks/{key}")).status_code == 401
     assert (await client.get(f"{API}/tasks/{key}", headers=other)).status_code == 403
     duplicate = await client.post(f"{API}/drafts/{draft_id}/card", json={"title": "Duplicate"}, headers=owner)

@@ -9,7 +9,8 @@
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
-    "test:auth": "node tests/auth.integration.mjs"
+    "test:auth": "node tests/auth.integration.mjs",
+    "test:catalog": "node tests/catalog.integration.mjs"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.131",

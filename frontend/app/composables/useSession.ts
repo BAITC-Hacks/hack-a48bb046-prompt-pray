@@ -1,4 +1,5 @@
 import type { AccessSession, AuthUser, LoginInput, RegisterInput } from '../../shared/types/auth'
+import type { User } from '~/types/api'
 
 // One refresh per app/SSR request, including concurrent requests from different components.
 const refreshes = new WeakMap<object, Promise<void>>()
@@ -6,7 +7,7 @@ const refreshes = new WeakMap<object, Promise<void>>()
 export function useSession() {
   const app = useNuxtApp()
   const token = useState<string | null>('access-token', () => null)
-  const user = useState<AuthUser | null>('current-user', () => null)
+  const user = useState<User | null>('current-user', () => null)
   const requestHeaders = useRequestHeaders(['cookie'])
   const responseCookies = import.meta.server ? useResponseHeader('set-cookie') : undefined
 

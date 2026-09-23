@@ -78,29 +78,30 @@ const { useSession } = load('../app/composables/useSession.ts', {}, {
   $fetch: sessionFetch,
   normalizeApiError: errors.normalizeApiError
 })
-const { useSessionApi: useApi } = load('../app/composables/useSessionApi.ts', { '../utils/api-error': errors }, {
-  useRuntimeConfig: () => ({ public: { apiBase: gateway } }), useSession, $fetch
+const { useApi } = load('../app/composables/useApi.ts', {}, {
+  useRuntimeConfig: () => ({ public: { apiBase: gateway } }), useSession,
+  useRequestFetch: () => $fetch
 })
 await useSession().login(input)
 const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
 const payload = JSON.parse(Buffer.from(token.value.split('.')[1], 'base64url').toString())
 const unsigned = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ ...payload, exp: 1 })}`
 token.value = `${unsigned}.${createHmac('sha256', secret).update(unsigned).digest('base64url')}`
-const api = useApi()
+const api = useApi().request
 const users = await Promise.all([api('/users/me'), api('/users/me'), api('/users/me')])
 assert.ok(users.every(value => value.email === input.email))
 assert.equal(refreshCount, 1, 'Concurrent 401 responses share a single refresh')
 assert.notEqual(token.value.split('.')[1], unsigned.split('.')[1])
 
 let attempts = 0
-const { useSessionApi: useRejectingApi } = load('../app/composables/useSessionApi.ts', { '../utils/api-error': errors }, {
+const { useApi: useRejectingApi } = load('../app/composables/useApi.ts', {}, {
   useRuntimeConfig: () => ({ public: { apiBase: gateway } }), useSession,
-  $fetch: { create: () => async () => {
+  useRequestFetch: () => async () => {
     attempts++
-    throw { status: 401, data: { detail: 'Rejected', code: 'unauthorized' } }
-  } }
+    throw { statusCode: 401, data: { detail: 'Rejected', code: 'unauthorized' } }
+  }
 })
-await assert.rejects(useRejectingApi()('/users/me'), error => error.status === 401)
+await assert.rejects(useRejectingApi().request('/users/me'), error => error.status === 401)
 assert.equal(attempts, 2, 'At most one replay even if refreshed access is rejected')
 assert.equal(token.value, null)
 await useSession().logout()

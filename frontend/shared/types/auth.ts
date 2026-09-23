@@ -2,6 +2,7 @@ export interface AuthUser {
   id: string
   email: string
   username: string
+  role: 'business' | 'student'
   is_active: boolean
   is_admin: boolean
   created_at: string

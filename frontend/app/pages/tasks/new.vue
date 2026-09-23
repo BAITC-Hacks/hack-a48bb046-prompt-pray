@@ -5,6 +5,7 @@ import type { Draft, Question, Card } from '~/types/catalog'
 
 definePageMeta({ middleware: 'auth' })
 const api = useApi()
+const app = useNuxtApp()
 const route = useRoute()
 const state = reactive({ description: '', title: '' })
 const schema = z.object({ description: z.string().trim().min(1, 'Опишите вашу потребность').max(32000) })
@@ -34,7 +35,7 @@ async function createDraft() {
   await action(async () => {
     if (!draft.value) {
       draft.value = await api.request<Draft>('/catalog/drafts', { method: 'POST', body: { description: state.description } })
-      await navigateTo({ query: { draft: draft.value.id } }, { replace: true })
+      await app.runWithContext(() => navigateTo({ query: { draft: draft.value!.id } }, { replace: true }))
     }
     await loadQuestions()
   })
@@ -63,12 +64,16 @@ async function assemble() {
       }
     }
     const card = await api.request<Card>(`/catalog/drafts/${draft.value!.id}/card`, { method: 'POST', body: { title: state.title } })
-    await navigateTo(`/tasks/${card.id}`)
+    await app.runWithContext(() => navigateTo(`/tasks/${card.id}`))
   })
 }
 if (typeof route.query.draft === 'string') {
   await action(async () => {
     draft.value = await api.request<Draft>(`/catalog/drafts/${route.query.draft}`)
+    if (draft.value.card_id) {
+      await app.runWithContext(() => navigateTo(`/tasks/${draft.value!.card_id}`, { replace: true }))
+      return
+    }
     state.description = draft.value.description
     questions.value = await api.request<Question[]>(`/catalog/drafts/${draft.value.id}/questions`)
     for (const question of questions.value) answers[question.id] = question.answer || ''
@@ -82,6 +87,7 @@ if (typeof route.query.draft === 'string') {
       title="Новая бизнес-задача"
       description="Опишите потребность. Ответы на уточняющие вопросы помогут подготовить карточку."
     />
+    <TasksTaskWorkflow :step="questions.length ? 2 : 1" />
     <UAlert
       v-if="api.user.value?.role !== 'business'"
       title="Создание задач доступно бизнесу"
@@ -106,7 +112,8 @@ if (typeof route.query.draft === 'string') {
         >
           <UTextarea
             v-model="state.description"
-            :disabled="!!draft"
+            :disabled="!!draft || pending"
+            placeholder="Например: хотим сократить время обработки заявок. Сейчас менеджеры вручную переносят их из почты в таблицу."
             :rows="6"
             class="w-full"
           />
@@ -118,26 +125,16 @@ if (typeof route.query.draft === 'string') {
           :label="draft ? 'Повторить уточнение' : 'Сохранить и получить вопросы'"
         />
       </UForm>
-      <UPageCard
-        v-for="question in questions"
+      <TasksTaskQuestion
+        v-for="(question, index) in questions"
         :key="question.id"
-        :title="question.question"
-      >
-        <UFormField :error="answerErrors[question.id]">
-          <UTextarea
-            v-model="answers[question.id]"
-            class="w-full"
-            :rows="3"
-            :maxlength="10000"
-          />
-        </UFormField>
-        <UButton
-          :disabled="pending"
-          :label="question.answer === answers[question.id] ? 'Ответ сохранён' : 'Сохранить ответ'"
-          variant="outline"
-          @click="saveAnswer(question)"
-        />
-      </UPageCard>
+        v-model="answers[question.id]"
+        :question="question"
+        :index="index"
+        :pending="pending"
+        :error="answerErrors[question.id]"
+        @save="saveAnswer(question)"
+      />
       <UForm
         v-if="questions.length"
         :schema="z.object({ title: z.string().trim().min(1, 'Введите название').max(200) })"
