@@ -29,6 +29,9 @@ services:
       EXAMPLE_DB_NAME: ${EXAMPLE_DB_NAME:-example_db}
       EXAMPLE_DB_USER: ${EXAMPLE_DB_USER:-example_user}
       EXAMPLE_DB_PASSWORD: ${EXAMPLE_DB_PASSWORD:?Задайте EXAMPLE_DB_PASSWORD в .env}
+      CATALOG_DB_NAME: ${CATALOG_DB_NAME:-catalog_db}
+      CATALOG_DB_USER: ${CATALOG_DB_USER:-catalog_user}
+      CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD:?Задайте CATALOG_DB_PASSWORD в .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d:ro
@@ -77,6 +80,53 @@ services:
     healthcheck: *healthcheck
     networks: [backend]
 
+  catalog_service:
+    build:
+      context: .
+      dockerfile: catalog_service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${CATALOG_DB_NAME:-catalog_db}
+      POSTGRES_USER: ${CATALOG_DB_USER:-catalog_user}
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD:?Задайте CATALOG_DB_PASSWORD в .env}
+      AI_SERVICE_URL: http://ai_service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck: *healthcheck
+    networks: [backend]
+
+  ai_service:
+    build:
+      context: .
+      dockerfile: ai_service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-astra}
+      OPENAI_TIMEOUT: ${OPENAI_TIMEOUT:-60}
+      OPENAI_MAX_OUTPUT_TOKENS: ${OPENAI_MAX_OUTPUT_TOKENS:-2048}
+    healthcheck: *healthcheck
+    networks: [backend]
+
+  ai_service:
+    build:
+      context: .
+      dockerfile: ai_service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-astra}
+      OPENAI_TIMEOUT: ${OPENAI_TIMEOUT:-60}
+      OPENAI_MAX_OUTPUT_TOKENS: ${OPENAI_MAX_OUTPUT_TOKENS:-2048}
+    healthcheck: *healthcheck
+    networks: [backend]
+
   api_gateway:
     build:
       context: .
@@ -86,6 +136,10 @@ services:
       <<: *app-env
       AUTH_SERVICE_URL: http://auth_service:8000
       EXAMPLE_SERVICE_URL: http://example_service:8000
+      AI_SERVICE_URL: http://ai_service:8000
+      AI_UPSTREAM_TIMEOUT: ${AI_UPSTREAM_TIMEOUT:-65}
+      CATALOG_SERVICE_URL: http://catalog_service:8000
+      AI_SERVICE_URL: http://ai_service:8000
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-}
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
       RATE_LIMIT_PER_HOUR: ${RATE_LIMIT_PER_HOUR:-1000}
@@ -96,6 +150,12 @@ services:
       auth_service:
         condition: service_healthy
       example_service:
+        condition: service_healthy
+      ai_service:
+        condition: service_healthy
+      catalog_service:
+        condition: service_healthy
+      ai_service:
         condition: service_healthy
     healthcheck: *healthcheck
     networks: [backend]

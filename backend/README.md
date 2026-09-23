@@ -1,14 +1,14 @@
 # backend — микросервисный бэкенд на FastAPI
 
-Основа для быстрого старта: **API Gateway + сервис авторизации + эталонный CRUD-сервис**,
+Бэкенд AI Sana: **API Gateway, авторизация, каталог бизнес-задач и AI-сервис**,
 общий пакет `common/`, PostgreSQL (своя БД на каждый сервис), Docker Compose.
 Структура и подход взяты из `CompEduX/server`.
 
 ```
 Клиент ──► api_gateway :8000 ──► auth_service     ──► auth_db
            (JWT, CORS,           example_service  ──► example_db
-            rate limit,          (свои сервисы…)
-            маршрутизация)
+            rate limit,          ai_service       ──► OpenAI Responses API
+            маршрутизация)       catalog_service  ──► catalog_db
 ```
 
 ## Быстрый старт
@@ -41,6 +41,8 @@
 | Состояние всех сервисов | http://localhost:8000/health   |
 | Swagger auth_service    | http://localhost:8001/api/v1/docs (только dev) |
 | Swagger example_service | http://localhost:8002/api/v1/docs (только dev) |
+| Swagger ai_service      | http://localhost:8003/api/v1/docs (только dev) |
+| Swagger catalog_service | http://localhost:8004/api/v1/docs (только dev) |
 | PostgreSQL              | localhost:5432 (только `start-postgres` и `dev`) |
 
 Swagger каждого сервиса — на его собственном порту: проксируемые gateway методы в его схему
@@ -74,6 +76,8 @@ backend/
 ├── api_gateway/             вход: проверка JWT, проксирование, агрегированный /health
 ├── auth_service/            регистрация, вход, refresh, /users/me
 ├── example_service/         эталон CRUD (items) — копируйте для новых сервисов
+├── ai_service/              генерация через OpenAI Responses API
+├── catalog_service/         черновики, вопросы, карточки, рейтинг, отклики и решения
 ├── postgres-init/           создание БД и пользователей при первом старте
 ├── scripts/                 run_local.py (запуск без Docker), generate_secrets.py, run_tests.py
 ├── start.bat / start.sh     запуск одним кликом (SQLite); start-postgres.* — то же на Postgres
@@ -90,7 +94,8 @@ backend/
 
 - **Авторизация.** Токены выпускает только `auth_service` (access — 30 мин, refresh — 7 дней).
   Gateway проверяет подпись access-токена и отбрасывает невалидные запросы, не дойдя до сервисов;
-  публичны лишь `POST /auth/register|login|refresh` (список — `PUBLIC_ENDPOINTS` в `api_gateway/app/core/config.py`).
+  публичны `POST /auth/register|login|refresh`, `GET /catalog` и чтение опубликованных карточек
+  `GET /catalog/tasks/{id}`. Неопубликованную карточку видит только её владелец.
   Токен пересылается дальше, и сервисы проверяют его сами (общий `JWT_SECRET_KEY`) — обход gateway внутри сети ничего не даёт.
   Обычные сервисы в `auth_service` за каждым запросом не ходят: пользователь берётся из токена
   (отозвать доступ можно только истечением токена). Сам `auth_service` дополнительно сверяет пользователя
@@ -102,6 +107,10 @@ backend/
   Таблицы создаются при старте (`create_all`). Для эволюции схемы в проде подключите Alembic.
   В разработке и тестах можно использовать SQLite (`DATABASE_URL=sqlite+aiosqlite:///…`), в production он запрещён валидацией.
 - **Health.** `/healthz` — процесс жив; `/health` — готовность (у сервисов проверяет БД, у gateway — все сервисы; 503 при сбое).
+- **Каталог.** Контракт и права доступа — в [catalog-api.md](../docs/catalog-api.md).
+  AI генерирует уточняющие вопросы; карточка собирается из исходного описания и ответов без выдуманных фактов.
+  Для генерации нужен `OPENAI_API_KEY` в локальном `.env`; без него остальные функции доступны,
+  а запрос вопросов возвращает контролируемую ошибку `ai_unavailable`, сохраняя черновик для повтора.
 
 ## Добавление сервиса
 
@@ -158,10 +167,38 @@ export DATABASE_URL=sqlite+aiosqlite:///./auth.db      # или POSTGRES_HOST/PO
 
 ## Клиент (фронтенд)
 
-Парный проект — [`../frontend`](../frontend/README.md) (Nuxt 4). Сейчас он к API не подключён.
+Парный проект — [`../frontend`](../frontend/README.md) (Nuxt 4) подключён через Nitro-прокси `/api/gateway`.
+Авторизация, черновики, уточнения, карточки, каталог, отклики и ручной выбор используют этот API.
 Для подключения: фронтенд ходит только на gateway (`:8000`), а его origin (dev — `http://localhost:3000`)
 нужно добавить в `BACKEND_CORS_ORIGINS`, если запросы идут из браузера напрямую. Меняя контракт API
 (схемы в `*/app/schemas/`, префиксы в `SERVICES`), обновляйте клиент в том же наборе изменений.
+
+## Каталог AI Sana
+
+`catalog_service` запускается вместе с остальными сервисами через `start.*`, использует
+`data/catalog_service.db` на SQLite или отдельную `catalog_db` на PostgreSQL.
+Для существующего тома PostgreSQL новую БД и пользователя нужно создать по процедуре
+«Добавление сервиса» выше: init-скрипты автоматически работают только на пустом томе.
+
+Регистрация принимает `role: business|student` (по умолчанию `student`). Роль возвращается
+в `/users/me` и токенах. При старте существующим пользователям добавляется роль `student`;
+старый access-токен без роли нужно обновить через refresh или повторный вход.
+
+Публичные GET `/api/v1/catalog` и `/api/v1/catalog/tasks/{uuid}` позволяют просматривать
+каталог и опубликованную карточку. Остальные действия проверяют роль и владельца:
+
+- Бизнес создаёт `/catalog/drafts`, запрашивает `/drafts/{id}/questions`, сохраняет ответы
+  через PATCH `/catalog/questions/{id}` и собирает `/drafts/{id}/card`.
+- Карточка редактируется через PATCH `/catalog/tasks/{id}`, рейтинг пересчитывается.
+  POST `/tasks/{id}/confirm` с `{ "confirmed": true }`, затем POST `/tasks/{id}/publish`
+  публикуют результат после подтверждения человеком. Изменение снимает публикацию до подтверждения.
+- Студент отправляет `/tasks/{id}/proposals`, владелец просматривает отклики и создаёт
+  `/tasks/{id}/decisions` с явным `selected_proposal_ids` (пустой список означает отказ всем).
+
+Для вопросов нужен `OPENAI_API_KEY` в `.env`; модель и лимиты задаются `OPENAI_MODEL`,
+`OPENAI_TIMEOUT`, `OPENAI_MAX_OUTPUT_TOKENS`. Без ключа черновик сохраняется, а генерация
+возвращает обработанную ошибку. Ответы провайдера проверяются до сохранения вопросов.
+Автоматического выбора команды нет. Низкий рейтинг не ограничивает публикацию и отклики.
 
 ## Работа с git
 
