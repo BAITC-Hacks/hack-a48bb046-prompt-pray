@@ -36,7 +36,7 @@ async function renderPage(role, saved = false, questions = []) {
   for (const name of ['UContainer', 'UForm', 'UFormField']) {
     app.component(name, { setup: (_, { slots }) => () => h('div', slots.default?.()) })
   }
-  for (const name of ['UPageHeader', 'TasksTaskWorkflow', 'TasksTaskQuestion', 'UInput', 'USelect']) {
+  for (const name of ['UPageHeader', 'TasksTaskWorkflow', 'TasksTaskQuestion', 'TasksTaskAiLoading', 'UInput', 'USelect', 'UBadge', 'UIcon', 'UProgress']) {
     app.component(name, { render: () => null })
   }
   app.component('UTextarea', {

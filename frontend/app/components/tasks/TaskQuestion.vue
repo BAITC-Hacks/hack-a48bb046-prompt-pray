@@ -22,6 +22,7 @@ const saved = computed(() => !!props.question.answer && props.question.answer ==
         :name="question.id"
       >
         <UTextarea
+          :id="`answer-${question.id}`"
           v-model="answer"
           class="w-full"
           :rows="3"

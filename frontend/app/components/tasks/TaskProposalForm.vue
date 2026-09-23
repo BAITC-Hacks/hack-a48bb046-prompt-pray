@@ -36,6 +36,7 @@ useLocalizedForm(() => proposalForm.value)
         :error="errors?.idea"
       >
         <UTextarea
+          id="proposal-idea"
           v-model="proposal.idea"
           :rows="4"
           autoresize
@@ -49,6 +50,7 @@ useLocalizedForm(() => proposalForm.value)
         :error="errors?.plan"
       >
         <UTextarea
+          id="proposal-plan"
           v-model="proposal.plan"
           :rows="4"
           autoresize
@@ -62,6 +64,7 @@ useLocalizedForm(() => proposalForm.value)
         :error="errors?.prototype_url"
       >
         <UInput
+          id="proposal-prototype"
           v-model="proposal.prototype_url"
           icon="i-lucide-link"
           placeholder="https://"

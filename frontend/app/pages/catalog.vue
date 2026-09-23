@@ -26,7 +26,9 @@ const { data: result, error, status, refresh } = useLazyAsyncData(
   () => api.request<CatalogPage>('/catalog', { query: { limit, offset: (page.value - 1) * limit, ...applied.value } }),
   { watch: [page, applied], server: false }
 )
-const pending = computed(() => status.value === 'pending')
+// A client-only request is idle on the server and pending during hydration.
+// Render the same loading state in both cases, never a premature empty catalog.
+const pending = computed(() => status.value === 'idle' || status.value === 'pending')
 </script>
 
 <template>

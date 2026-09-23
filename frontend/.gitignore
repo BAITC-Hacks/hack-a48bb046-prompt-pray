@@ -25,3 +25,7 @@ logs
 
 # VSC
 .history
+
+# Browser test artifacts (may contain test session tokens)
+test-results/
+playwright-report/

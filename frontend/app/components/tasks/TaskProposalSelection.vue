@@ -50,6 +50,7 @@ const emit = defineEmits<{ decide: [] }>()
         :error="error"
       >
         <UTextarea
+          id="decision-comment"
           v-model="comment"
           :maxlength="10000"
           :rows="3"

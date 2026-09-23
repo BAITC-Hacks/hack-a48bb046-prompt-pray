@@ -2,7 +2,7 @@
 import { ru, kk, en } from '@nuxt/ui/locale'
 import { normalizeLocale } from '~/i18n/config'
 
-const { locale } = useAppI18n()
+const { locale, t } = useAppI18n()
 const uiLocale = computed(() => ({ ru, kk, en })[normalizeLocale(locale.value)])
 const colorMode = useColorMode()
 const pendingRequests = useState('api-pending-requests', () => 0)
@@ -31,18 +31,20 @@ provide('navigation', navigation)
 <template>
   <UApp :locale="uiLocale">
     <NuxtLoadingIndicator />
-    <div
-      v-if="pendingRequests > 0"
-      role="status"
-      aria-live="polite"
-      class="pointer-events-none fixed right-4 bottom-4 z-50 flex items-center gap-2 rounded-lg border border-default bg-default px-4 py-3 text-sm shadow-lg"
-    >
-      <UIcon
-        name="i-lucide-loader-circle"
-        class="size-4 animate-spin"
-      />
-      Выполняем запрос…
-    </div>
+    <ClientOnly>
+      <div
+        v-if="pendingRequests > 0"
+        role="status"
+        aria-live="polite"
+        class="pointer-events-none fixed right-4 bottom-4 z-50 flex items-center gap-2 rounded-lg border border-default bg-default px-4 py-3 text-sm shadow-lg"
+      >
+        <UIcon
+          name="i-lucide-loader-circle"
+          class="size-4 animate-spin"
+        />
+        {{ t('navigation.requestPending') }}
+      </div>
+    </ClientOnly>
     <NuxtLayout>
       <AuthAvailability>
         <NuxtPage />

@@ -14,6 +14,7 @@ defineProps<{ errors?: Record<string, string> }>()
     :error="errors?.title"
   >
     <UInput
+      id="card-title"
       v-model="model.title"
       size="lg"
       class="w-full"
@@ -29,6 +30,7 @@ defineProps<{ errors?: Record<string, string> }>()
     :error="errors?.[field.key]"
   >
     <UTextarea
+      :id="`card-${field.key}`"
       v-model="model[field.key]"
       autoresize
       size="lg"
