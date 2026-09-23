@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CatalogPage } from '~/types/catalog'
+import { taskTopics } from '~/types/catalog'
 
 const { t, n } = useAppI18n()
 
@@ -7,6 +8,23 @@ useSeoMeta({ title: () => t('catalog.meta'), description: () => t('catalog.descr
 const api = useApi()
 const { errorMessage } = useApiMessages()
 const page = ref(1)
+const filters = ref({ topic: 'all', readiness: 'all' })
+const filtered = computed(() => filters.value.topic !== 'all' || filters.value.readiness !== 'all')
+const topicOptions = computed(() => ['all', ...taskTopics, 'unspecified'].map(value => ({ value, label: t(`topics.${value}`) })))
+const readinessOptions = computed(() => [
+  { value: 'all', label: t('catalogFilters.allReadiness') },
+  ...(['draft', 'working', 'ready', 'priority'] as const).map((value, index) => ({
+    value, label: `${t(`rating.${value}`)} · ${['0–39', '40–69', '70–89', '90–100'][index]}`
+  }))
+])
+function setFilter(key: 'topic' | 'readiness', value: string) {
+  page.value = 1
+  filters.value = { ...filters.value, [key]: value }
+}
+function resetFilters() {
+  page.value = 1
+  filters.value = { topic: 'all', readiness: 'all' }
+}
 const profile = useState('catalog-team-profile', () => ({ skills: '', interests: '' }))
 const personalized = ref(false)
 const applied = ref({ skills: '', interests: '' })
@@ -23,8 +41,12 @@ function resetSort() {
 const limit = 12
 const { data: result, error, status, refresh } = useLazyAsyncData(
   'business-task-catalog',
-  () => api.request<CatalogPage>('/catalog', { query: { limit, offset: (page.value - 1) * limit, ...applied.value } }),
-  { watch: [page, applied], server: false }
+  () => api.request<CatalogPage>('/catalog', { query: {
+    limit, offset: (page.value - 1) * limit, ...applied.value,
+    ...(filters.value.topic !== 'all' ? { topic: filters.value.topic } : {}),
+    ...(filters.value.readiness !== 'all' ? { readiness: filters.value.readiness } : {})
+  } }),
+  { watch: [page, applied, filters], server: false }
 )
 // A client-only request is idle on the server and pending during hydration.
 // Render the same loading state in both cases, never a premature empty catalog.
@@ -49,6 +71,42 @@ const pending = computed(() => status.value === 'idle' || status.value === 'pend
         size="lg"
       />
     </AppPageHeading>
+
+    <section
+      :aria-label="t('catalogFilters.title')"
+      class="space-y-4 rounded-xl border border-default p-5"
+    >
+      <h2 class="font-medium">
+        {{ t('catalogFilters.title') }}
+      </h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <UFormField :label="t('catalogFilters.topic')">
+          <USelect
+            :model-value="filters.topic"
+            :items="topicOptions"
+            class="w-full"
+            @update:model-value="setFilter('topic', $event)"
+          />
+        </UFormField>
+        <UFormField :label="t('catalogFilters.readiness')">
+          <USelect
+            :model-value="filters.readiness"
+            :items="readinessOptions"
+            class="w-full"
+            @update:model-value="setFilter('readiness', $event)"
+          />
+        </UFormField>
+      </div>
+      <UButton
+        v-if="filtered"
+        :label="t('catalogFilters.reset')"
+        variant="outline"
+        @click="resetFilters"
+      />
+      <p class="text-sm text-muted">
+        {{ t('catalogFilters.lowRatingHint') }}
+      </p>
+    </section>
 
     <form
       class="space-y-4 rounded-xl border border-default p-5"
@@ -141,10 +199,16 @@ const pending = computed(() => status.value === 'idle' || status.value === 'pend
     </AppEmptyState>
     <AppEmptyState
       v-else-if="!result?.total"
-      :title="t('catalog.emptyTitle')"
-      :description="t('catalog.emptyDescription')"
+      :title="t(filtered ? 'catalogFilters.emptyTitle' : 'catalog.emptyTitle')"
+      :description="t(filtered ? 'catalogFilters.emptyHint' : 'catalog.emptyDescription')"
     >
       <UButton
+        v-if="filtered"
+        :label="t('catalogFilters.reset')"
+        @click="resetFilters"
+      />
+      <UButton
+        v-else
         to="/tasks/new"
         :label="t('navigation.createTask')"
         icon="i-lucide-plus"

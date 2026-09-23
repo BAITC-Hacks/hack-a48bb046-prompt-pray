@@ -41,6 +41,7 @@ async def test_tables_relationships_and_serialization(db):
         "task_drafts", "clarifying_questions", "task_cards", "rating_breakdowns",
         "catalog_entries", "proposals", "selection_decisions", "selection_decision_proposals",
         "reward_events", "daily_visits", "coin_transactions", "action_days",
+        "selection_decision_rejections",
     }
     business_id = uuid4()
     async with db.session_factory() as session:
@@ -76,7 +77,7 @@ async def test_tables_relationships_and_serialization(db):
         assert result.task.rating.readiness == "черновик"
         assert result.model_dump()["task"]["rating"]["readiness_code"] == "draft"
         stored = (await session.scalars(select(SelectionDecision).options(
-            selectinload(SelectionDecision.selected_proposals)
+            selectinload(SelectionDecision.selected_proposals), selectinload(SelectionDecision.rejected_proposals)
         ))).all()
         assert sorted(len(SelectionDecisionRead.model_validate(d).selected_proposal_ids)
                       for d in stored) == [0, 1, 2]

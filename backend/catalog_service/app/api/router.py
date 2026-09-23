@@ -9,8 +9,9 @@ from ..core.config import settings
 from ..schemas.domain import (
     TaskDraftCreate, TaskDraftUpdate, TaskDraftRead, ClarifyingQuestionRead, ClarifyingQuestionAnswer,
     TaskCardCreate, TaskCardUpdate, TaskCardRead, TaskCardConfirm, TaskCardPublish, CatalogEntryRead,
-    ProposalCreate, ProposalRead, SelectionDecisionCreate, SelectionDecisionRead,
+    ProposalCreate, ProposalRead, SelectionDecisionCreate, SelectionDecisionRead, Topic, Readiness,
 )
+from typing import Literal
 from ..services.catalog import own, require_role
 
 api_router = APIRouter(prefix="/catalog", tags=["catalog"])
@@ -58,9 +59,10 @@ async def catalog_health():
 @api_router.get("")
 async def catalog(limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0),
                   skills: str = Query('', max_length=500), interests: str = Query('', max_length=500),
+                  topic: Topic | Literal['unspecified'] | None = None, readiness: Readiness | None = None,
                   service=Depends(get_service)):
     from ..services.assistance import keywords
-    items, total = await service.repo.catalog(limit, offset, keywords(skills + ' ' + interests))
+    items, total = await service.repo.catalog(limit, offset, keywords(skills + ' ' + interests), topic, readiness)
     return {"items": [CatalogEntryRead.model_validate(item) for item in items],
             "total": total, "limit": limit, "offset": offset}
 
@@ -139,8 +141,7 @@ async def proposal(key: UUID, payload: ProposalCreate, user=Depends(get_current_
 
 @api_router.get("/tasks/{key}/proposals", response_model=list[ProposalRead])
 async def proposals(key: UUID, user=Depends(get_current_user), service=Depends(get_service)):
-    own(await service.card(key), user)
-    return await service.repo.proposals(key)
+    return await service.proposals(key, user)
 
 
 @api_router.post("/tasks/{key}/decisions", response_model=SelectionDecisionRead, status_code=201)

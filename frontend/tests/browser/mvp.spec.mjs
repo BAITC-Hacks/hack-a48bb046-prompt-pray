@@ -137,6 +137,7 @@ for (const locale of ['ru', 'kk', 'en']) {
     const draft = await (await draftResponse).json()
     expect(draft.locale).toBe(locale)
     expect(draft.description).toBe(description)
+    await page.getByRole('switch', { name: t('ai.dialogue'), exact: true }).click()
     await expect(page.locator('[data-question-card]')).toHaveCount(3)
     const answer = 'Original answer — бастапқы жауап'
     await page.getByLabel(questions[locale], { exact: true }).fill(answer)
@@ -148,6 +149,7 @@ for (const locale of ['ru', 'kk', 'en']) {
     await expect(page.locator('[data-question-card]').first().getByRole('button', { name: t('task.saved'), exact: true })).toBeVisible()
     await page.reload()
     await hydrated(page)
+    await page.getByRole('switch', { name: t('ai.dialogue'), exact: true }).click()
     await expect(page.getByLabel(questions[locale], { exact: true })).toHaveValue(answer)
     await expect(page.locator('html')).toHaveAttribute('lang', locale)
 
@@ -164,6 +166,8 @@ for (const locale of ['ru', 'kk', 'en']) {
     await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '30')
     await expect(page.getByText(t('rating.draft'), { exact: true })).toBeVisible()
     expect((await (await request.get(root)).json()).items.some(item => item.task_id === card.id)).toBe(false)
+    await page.getByRole('combobox', { name: t('catalogFilters.topic'), exact: true }).click()
+    await page.getByRole('option', { name: t('topics.automation'), exact: true }).click()
     const publication = page.waitForResponse(r => r.url().endsWith(`/tasks/${card.id}/publish`) && r.request().method() === 'POST')
     await page.getByRole('button', { name: t('task.publish'), exact: true }).click()
     expect((await publication).ok()).toBe(true)
@@ -174,6 +178,19 @@ for (const locale of ['ru', 'kk', 'en']) {
     await expect(page).toHaveURL(new RegExp(`/tasks/${card.id}$`))
     await page.goto('/catalog')
     await hydrated(page)
+    await page.getByRole('combobox', { name: t('catalogFilters.topic'), exact: true }).click()
+    await page.getByRole('option', { name: t('topics.marketing'), exact: true }).click()
+    await expect(page.getByRole('heading', { name: t('catalogFilters.emptyTitle'), exact: true })).toBeVisible()
+    await page.getByRole('combobox', { name: t('catalogFilters.topic'), exact: true }).click()
+    await page.getByRole('option', { name: t('topics.automation'), exact: true }).click()
+    await page.getByRole('combobox', { name: t('catalogFilters.readiness'), exact: true }).click()
+    await page.getByRole('option', { name: `${t('rating.ready')} · 70–89`, exact: true }).click()
+    await expect(page.getByRole('heading', { name: t('catalogFilters.emptyTitle'), exact: true })).toBeVisible()
+    await page.getByRole('combobox', { name: t('catalogFilters.readiness'), exact: true }).click()
+    await page.getByRole('option', { name: `${t('rating.draft')} · 0–39`, exact: true }).click()
+    const catalogCard = page.getByRole('link').filter({ has: page.getByRole('heading', { name: title, exact: true }) })
+    await expect(catalogCard.getByText(t('catalogFilters.lowRatingOpen'), { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: t('catalogFilters.reset'), exact: true }).click()
     await page.getByRole('link').filter({ has: page.getByRole('heading', { name: title, exact: true }) }).click()
     await expect(page).toHaveURL(new RegExp(`/tasks/${card.id}$`))
 
@@ -184,6 +201,7 @@ for (const locale of ['ru', 'kk', 'en']) {
         const studentPage = await context.newPage()
         watchErrors(studentPage)
         await login(studentPage, username, locale, `/tasks/${card.id}`)
+        await expect(studentPage.getByText(t('catalogFilters.lowRatingOpen'), { exact: true })).toBeVisible()
         const idea = `Student ${index} idea — идея`
         await studentPage.getByLabel(t('proposal.idea'), { exact: true }).fill(idea)
         await studentPage.getByLabel(t('proposal.plan'), { exact: true }).fill('Plan — жоспар')
@@ -196,6 +214,8 @@ for (const locale of ['ru', 'kk', 'en']) {
         expect(submitted.status()).toBe(201)
         proposals.push(await submitted.json())
         await expect(studentPage.getByText(t('task.proposalSent'), { exact: true })).toBeVisible()
+        await expect(studentPage.getByText(t('decisions.pending'), { exact: true })).toBeVisible()
+        await expect(studentPage.getByRole('button', { name: t('decisions.select'), exact: true })).toHaveCount(0)
         await expect(studentPage.getByRole('checkbox')).toHaveCount(0)
       } finally {
         await context.close()
@@ -206,24 +226,45 @@ for (const locale of ['ru', 'kk', 'en']) {
     expect(await (await page.request.get(decisionsUrl, { headers })).json()).toEqual([])
     await page.reload()
     await hydrated(page)
-    const boxes = page.getByRole('checkbox', { name: t('proposal.select'), exact: true })
-    await expect(boxes).toHaveCount(2)
+    const cards = page.locator('[data-proposal-id]')
+    await expect(cards).toHaveCount(2)
+    await expect(page.getByText(t('decisions.notDecided'), { exact: true })).toBeVisible()
     const displayed = await (await page.request.get(`${root}/tasks/${card.id}/proposals`, { headers })).json()
-    for (const count of [1, 2, 0]) {
-      for (let i = 0; i < 2; i++) await boxes.nth(i).setChecked(i < count)
-      const response = page.waitForResponse(r => r.url().endsWith(decisionsUrl) && r.request().method() === 'POST')
-      await page.getByRole('button', { name: count ? t('proposal.confirm', { count }) : t('proposal.confirmNone'), exact: true }).click()
-      const saved = await response
-      expect(saved.status()).toBe(201)
-      const decision = await saved.json()
-      expect(decision.selected_proposal_ids).toHaveLength(count)
-      expect([...decision.selected_proposal_ids].sort()).toEqual(displayed.slice(0, count).map(proposal => proposal.id).sort())
-      expect(decision.selected_proposal_ids.every(id => proposals.some(proposal => proposal.id === id))).toBe(true)
-      await expect(page.getByText(count ? t('task.decisionSaved', { count }, count) : t('task.decisionNone'), { exact: true })).toBeVisible()
-      await page.reload()
-      await hydrated(page)
-      await expect(boxes).toHaveCount(2)
-      await expect(page.getByRole('checkbox', { checked: true })).toHaveCount(count)
+    const studentContext = await browser.newContext({ baseURL })
+    try {
+      const studentPage = await studentContext.newPage()
+      watchErrors(studentPage)
+      await login(studentPage, students[1], locale, `/tasks/${card.id}`)
+      for (const count of [1, 2, 0]) {
+        if (count) {
+          for (let i = 0; i < 2; i++) {
+            await cards.nth(i).getByRole('button', { name: t(i < count ? 'decisions.select' : 'decisions.reject'), exact: true }).click()
+          }
+          await expect(page.getByText(t('decisions.unsaved'), { exact: true })).toBeVisible()
+        }
+        const response = page.waitForResponse(r => r.url().endsWith(decisionsUrl) && r.request().method() === 'POST')
+        await page.getByRole('button', { name: t(count ? 'decisions.save' : 'proposal.confirmNone'), exact: true }).click()
+        const saved = await response
+        expect(saved.status()).toBe(201)
+        const decision = await saved.json()
+        expect(decision.selected_proposal_ids).toHaveLength(count)
+        expect(decision.rejected_proposal_ids).toHaveLength(2 - count)
+        expect([...decision.selected_proposal_ids].sort()).toEqual(displayed.slice(0, count).map(proposal => proposal.id).sort())
+        expect(decision.selected_proposal_ids.every(id => proposals.some(proposal => proposal.id === id))).toBe(true)
+        await expect(page.getByText(count ? t('task.decisionSaved', { count }, count) : t('task.decisionNone'), { exact: true })).toBeVisible()
+        await page.reload()
+        await hydrated(page)
+        await expect(cards).toHaveCount(2)
+        for (let i = 0; i < 2; i++) {
+          await expect(cards.nth(i).getByText(t(i < count ? 'decisions.selected' : 'decisions.rejected'), { exact: true })).toBeVisible()
+        }
+        await studentPage.reload()
+        await hydrated(studentPage)
+        await expect(studentPage.locator('[data-proposal-id]')).toHaveCount(1)
+        await expect(studentPage.getByText(t(count === 2 ? 'decisions.selected' : 'decisions.rejected'), { exact: true })).toBeVisible()
+      }
+    } finally {
+      await studentContext.close()
     }
     // AI failure now produces persisted fallback questions instead of an error.
     const fallbackDraft = await (await page.request.post(`${root}/drafts`, {

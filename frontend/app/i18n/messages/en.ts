@@ -77,6 +77,46 @@ export default {
     interests: 'Team interests (e.g. education, logistics)',
     matchHint: 'Sorted by keyword matches, then completeness rating. All tasks remain available; teams are never assigned automatically.'
   },
+  topics: {
+    all: 'All topics',
+    unspecified: 'No topic',
+    analytics: 'Analytics and data',
+    automation: 'Automation',
+    marketing: 'Marketing',
+    product: 'Websites and apps',
+    other: 'Other'
+  },
+  catalogFilters: {
+    title: 'Catalog filters',
+    topic: 'Topic',
+    readiness: 'Readiness level',
+    allReadiness: 'Any level',
+    reset: 'Reset filters',
+    emptyTitle: 'No tasks match these filters',
+    emptyHint: 'Change the topic or readiness level to see other tasks.',
+    topicHint: 'The topic helps teams find this task and does not affect its rating.',
+    lowRatingOpen: 'Low rating — proposals welcome',
+    lowRatingHint: 'You can submit a proposal even when a published task scores 0–39. The rating measures description completeness, not task availability.'
+  },
+  decisions: {
+    pending: 'Under review',
+    selected: 'Selected',
+    rejected: 'Rejected',
+    select: 'Select',
+    reject: 'Reject',
+    defer: 'Keep under review',
+    preview: 'After saving: {status}',
+    saved: 'Saved business decision',
+    notDecided: 'No decision yet',
+    manualHint: 'All proposals are under review. The business selects teams manually.',
+    summary: 'Selected: {selected}. Rejected: {rejected}. Under review: {pending}.',
+    unsaved: 'You have unsaved changes. Teams will see their status after you save the decision.',
+    saveHint: 'You can select several teams, reject individual proposals, or keep them under review.',
+    save: 'Save decision',
+    noneHint: 'Choosing nobody saves a rejection for every current proposal. New proposals remain welcome.',
+    myProposals: 'My proposals and business decisions',
+    studentHint: 'The saved decision for each of your proposals is shown here. Refresh the page to check for changes.'
+  },
   creation: {
     assembling: 'Building your task card',
     eyebrow: 'From an idea to a real task',

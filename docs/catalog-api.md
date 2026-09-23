@@ -20,13 +20,25 @@ request validation errors use FastAPI's HTTP 422 response with a `detail` array.
 | POST | `/tasks/{id}/publish` | owner | `{expected_version}` → `CatalogEntryRead` |
 | GET | root path | public | `{items: CatalogEntryRead[], total, limit, offset}` |
 | POST | `/tasks/{id}/proposals` | student | `ProposalCreate` → `ProposalRead`, 201 |
-| GET | `/tasks/{id}/proposals` | owner | `ProposalRead[]` |
+| GET | `/tasks/{id}/proposals` | owner or student | all proposals for owner; only the authenticated student's own proposals otherwise; includes saved `status` |
 | POST | `/tasks/{id}/decisions` | owner | `SelectionDecisionCreate` → `SelectionDecisionRead`, 201 |
 | GET | `/tasks/{id}/decisions` | owner | decision history, newest first |
 
 The catalog accepts `limit` (1–200, default 50) and `offset` (default 0), sorted by
 descending rating, then publication time, then task ID for stable pagination.
 There is no minimum score for publication or proposals.
+
+Optional catalog filters are `topic` (`analytics`, `automation`, `marketing`,
+`product`, `other`, or `unspecified` for cards without a topic) and `readiness`
+(`draft`, `working`, `ready`, `priority`). Both filters apply before counting,
+sorting and pagination. They combine with `skills` and `interests`, which only
+change sorting within the filtered results. Omit filters to return all topics
+and readiness levels; low-rating published cards remain included.
+
+Card create/update accepts an optional `topic` from the five topic codes above,
+or null. The business sets it manually; it does not contribute to the rating.
+Changing it follows the existing review/confirmation/publication workflow.
+Existing cards keep a null topic and are available under `unspecified`.
 
 Every non-null `TaskCardRead.rating` includes the seven component scores, `total`
 (0–100), and a stable, language-independent `readiness_code`:
@@ -120,5 +132,22 @@ Proposals require `team_id` (UUID), `idea`, `plan`, and an optional HTTP(S)
 `prototype_url`. Teams have no separate membership system in this MVP: `team_id`
 is supplied by the student; `user_id` is always taken from the verified token.
 Decisions accept an explicit `selected_proposal_ids` array, including an empty array
-to choose nobody. Every selected proposal must belong to the same task. Decisions
-are recorded only following the owner's request; there is no automatic selection.
+to select no teams, and `rejected_proposal_ids`. These arrays form a complete
+snapshot: proposals in neither array remain `pending`, selected proposals are
+`selected`, and rejected proposals are `rejected`. Arrays must have unique,
+disjoint IDs belonging to the same task. A business may choose one or several
+teams, reject individual proposals, or reject all currently reviewed proposals
+by sending an empty selection and all current IDs in the rejection array.
+New proposals always start as pending. The UI distinguishes draft choices from
+saved statuses and shows saved statuses to the business and each proposal's author.
+
+For older clients, omitting `rejected_proposal_ids` (or supplying null) retains
+the previous full selection snapshot behavior: all current non-selected proposals
+are rejected. Decision history remains owner-only; students cannot view other
+authors' proposals, even if they supply the same team_id. Decisions are recorded
+only following the owner's request; there is no automatic selection.
+
+Startup migration `0003_catalog_decisions` adds the nullable topic column and a
+rejection association table. It preserves old selection snapshots by recording
+the non-selected proposals that existed when each decision was made; later
+proposals remain pending. It does not reset cards, ratings, publications or history.

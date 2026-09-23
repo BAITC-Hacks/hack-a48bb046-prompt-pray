@@ -1,16 +1,26 @@
 <script setup lang="ts">
-import type { Proposal } from '~/types/catalog'
+import type { Proposal, ProposalStatus, Decision } from '~/types/catalog'
 
 const { t, n } = useAppI18n()
 
 const selected = defineModel<string[]>('selected', { required: true })
+const rejected = defineModel<string[]>('rejected', { required: true })
 const comment = defineModel<string>('comment', { required: true })
 const template = useTemplateMode()
 template.prefill(() => {
   if (!comment.value.trim()) comment.value = template.comment
 })
-defineProps<{ proposals: Proposal[], pending: boolean, error?: string, taskId?: string }>()
-const emit = defineEmits<{ decide: [] }>()
+const props = defineProps<{ proposals: Proposal[], decision: Decision | null, pending: boolean, error?: string, taskId?: string }>()
+const emit = defineEmits<{ decide: [], decideNone: [] }>()
+const changed = computed(() => props.proposals.some(item => draftStatus(item.id) !== item.status)
+  || comment.value.trim() !== (props.decision?.comment || ''))
+function draftStatus(id: string): ProposalStatus {
+  return selected.value.includes(id) ? 'selected' : rejected.value.includes(id) ? 'rejected' : 'pending'
+}
+function setStatus(id: string, status: ProposalStatus) {
+  selected.value = [...selected.value.filter(value => value !== id), ...(status === 'selected' ? [id] : [])]
+  rejected.value = [...rejected.value.filter(value => value !== id), ...(status === 'rejected' ? [id] : [])]
+}
 </script>
 
 <template>
@@ -18,6 +28,15 @@ const emit = defineEmits<{ decide: [] }>()
     :title="t('proposal.responses')"
     :description="t('proposal.selectionHint')"
   >
+    <UAlert
+      :title="t(decision ? 'decisions.saved' : 'decisions.notDecided')"
+      :description="decision ? t('decisions.summary', {
+        selected: n(proposals.filter(item => item.status === 'selected').length),
+        rejected: n(proposals.filter(item => item.status === 'rejected').length),
+        pending: n(proposals.filter(item => item.status === 'pending').length)
+      }) : t('decisions.manualHint')"
+      color="neutral"
+    />
     <AppEmptyState
       v-if="!proposals.length"
       :title="t('proposal.empty')"
@@ -31,8 +50,9 @@ const emit = defineEmits<{ decide: [] }>()
       :task-id="taskId"
       :index="index"
       :pending="pending"
-      :model-value="selected.includes(item.id)"
-      @update:model-value="value => selected = value ? [...selected, item.id] : selected.filter(id => id !== item.id)"
+      editable
+      :model-value="draftStatus(item.id)"
+      @update:model-value="setStatus(item.id, $event)"
     />
     <div
       v-if="proposals.length"
@@ -49,6 +69,9 @@ const emit = defineEmits<{ decide: [] }>()
         />
         {{ t('interface.selected', { count: n(selected.length), total: n(proposals.length) }) }}
       </p>
+      <p class="text-sm text-muted">
+        {{ t(changed ? 'decisions.unsaved' : 'decisions.saveHint') }}
+      </p>
       <UFormField
         :label="t('proposal.comment')"
         :error="error"
@@ -63,13 +86,26 @@ const emit = defineEmits<{ decide: [] }>()
           class="w-full"
         />
       </UFormField>
-      <UButton
-        icon="i-lucide-check"
-        size="lg"
-        :label="selected.length ? t('proposal.confirm', { count: n(selected.length) }) : t('proposal.confirmNone')"
-        :loading="pending"
-        @click="emit('decide')"
-      />
+      <div class="flex flex-wrap gap-3">
+        <UButton
+          icon="i-lucide-check"
+          size="lg"
+          :label="t('decisions.save')"
+          :loading="pending"
+          :disabled="!changed"
+          @click="emit('decide')"
+        />
+        <UButton
+          :label="t('proposal.confirmNone')"
+          color="neutral"
+          variant="outline"
+          :disabled="pending"
+          @click="emit('decideNone')"
+        />
+      </div>
+      <p class="text-xs text-muted">
+        {{ t('decisions.noneHint') }}
+      </p>
     </div>
   </AppCard>
 </template>

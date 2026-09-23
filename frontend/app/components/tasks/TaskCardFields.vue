@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { cardFields } from '~/types/catalog'
+import { cardFields, taskTopics } from '~/types/catalog'
 
 const { t } = useAppI18n()
+const topicOptions = computed(() => ['unspecified', ...taskTopics].map(value => ({ value, label: t(`topics.${value}`) })))
 
 const model = defineModel<Record<string, string>>({ required: true })
 const template = useTemplateMode()
@@ -25,6 +26,19 @@ defineProps<{ errors?: Record<string, string> }>()
       size="xl"
       :maxlength="200"
       :ui="{ base: 'rounded-xl font-semibold text-lg' }"
+      class="w-full"
+    />
+  </UFormField>
+  <UFormField
+    name="topic"
+    :label="t('catalogFilters.topic')"
+    :error="errors?.topic"
+    :description="t('catalogFilters.topicHint')"
+  >
+    <USelect
+      v-model="model.topic"
+      :items="topicOptions"
+      size="lg"
       class="w-full"
     />
   </UFormField>

@@ -11,6 +11,7 @@ from .questions import AIInvalidResponse, AIUnavailable, generate_questions
 from .fallback_questions import fallback_questions
 from .draft_language import detect_draft_locale
 from .rewards import award, award_coins, award_fields, record_action
+from ..schemas.domain import ProposalRead
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +214,10 @@ class CatalogService:
         # Serialize decisions for this task, including SQLite writers.
         await self.repo.lock_draft(card.draft_id)
         proposals = {p.id: p for p in await self.repo.proposals(key)}
-        if any(key not in proposals for key in payload.selected_proposal_ids):
+        rejected = payload.rejected_proposal_ids
+        if rejected is None:
+            rejected = [key for key in proposals if key not in payload.selected_proposal_ids]
+        if any(key not in proposals for key in [*payload.selected_proposal_ids, *rejected]):
             raise BadRequestError("Selected proposals must belong to this task")
         previous = await self.repo.latest_decision_time(key)
         created_at = datetime.now(timezone.utc)
@@ -223,7 +227,8 @@ class CatalogService:
             created_at = max(created_at, previous + timedelta(microseconds=1))
         decision = SelectionDecision(task_id=key, business_id=user.id, comment=payload.comment,
             created_at=created_at,
-            selected_proposals=[proposals[key] for key in payload.selected_proposal_ids])
+            selected_proposals=[proposals[key] for key in payload.selected_proposal_ids],
+            rejected_proposals=[proposals[key] for key in rejected])
         if payload.selected_proposal_ids:
             await award(self.session, card, "solution_selected")
         for proposal in decision.selected_proposals:
@@ -231,5 +236,20 @@ class CatalogService:
         if previous is None:
             await record_action(self.session, "business", user.id)
         await self.save(decision)
-        await self.session.refresh(decision, ['selected_proposals'])
+        await self.session.refresh(decision, ['selected_proposals', 'rejected_proposals'])
         return decision
+
+    async def proposals(self, key, user):
+        card = await self.card(key)
+        if user.role == 'student':
+            # Identity always comes from the verified token, never team_id input.
+            proposals = await self.repo.proposals(key, user_id=user.id)
+        else:
+            own(card, user)
+            proposals = await self.repo.proposals(key)
+        decisions = await self.repo.decisions(key, limit=1)
+        selected = set(decisions[0].selected_proposal_ids) if decisions else set()
+        rejected = set(decisions[0].rejected_proposal_ids) if decisions else set()
+        return [ProposalRead.model_validate(proposal).model_copy(update={
+            'status': 'selected' if proposal.id in selected else 'rejected' if proposal.id in rejected else 'pending',
+        }) for proposal in proposals]

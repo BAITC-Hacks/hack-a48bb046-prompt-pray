@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, computed_field, field_validator, model_validator
 
 CardField = Literal[
     "context", "data", "expected_result", "success_criteria",
@@ -14,6 +14,8 @@ Content = Annotated[str, Field(min_length=1, max_length=10_000)]
 CardContent = Annotated[str, Field(min_length=1, max_length=102_007)]
 Title = Annotated[str, Field(min_length=1, max_length=200)]
 DraftLocale = Literal["ru", "kk", "en"]
+Topic = Literal["analytics", "automation", "marketing", "product", "other"]
+Readiness = Literal["draft", "working", "ready", "priority"]
 
 
 class Request(BaseModel):
@@ -77,6 +79,7 @@ class ClarifyingQuestionRead(EntityRead):
 
 
 class CardFields(Request):
+    topic: Topic | None = None
     # Missing data stays absent; low completeness must not block publication/proposals.
     context: CardContent | None = None
     data: CardContent | None = None
@@ -153,6 +156,7 @@ class TaskCardRead(EntityRead):
     draft_id: UUID
     business_id: UUID
     title: str
+    topic: Topic | None
     context: str | None
     data: str | None
     expected_result: str | None
@@ -184,23 +188,33 @@ class ProposalRead(EntityRead):
     idea: str
     plan: str
     prototype_url: str | None
+    status: Literal["pending", "selected", "rejected"] = "pending"
 
 
 class SelectionDecisionCreate(Request):
     # Required even when empty: selecting nobody must be an explicit choice.
     selected_proposal_ids: list[UUID]
+    # Omission preserves the legacy snapshot contract (all others are rejected).
+    rejected_proposal_ids: list[UUID] | None = None
     comment: Content | None = None
 
-    @field_validator("selected_proposal_ids")
+    @field_validator("selected_proposal_ids", "rejected_proposal_ids")
     @classmethod
     def unique_proposals(cls, value):
-        if len(set(value)) != len(value):
+        if value is not None and len(set(value)) != len(value):
             raise ValueError("Selected proposals must be unique")
         return value
+
+    @model_validator(mode="after")
+    def disjoint_proposals(self):
+        if set(self.selected_proposal_ids) & set(self.rejected_proposal_ids or []):
+            raise ValueError("A proposal cannot be selected and rejected together")
+        return self
 
 
 class SelectionDecisionRead(EntityRead):
     task_id: UUID
     business_id: UUID
     selected_proposal_ids: list[UUID]
+    rejected_proposal_ids: list[UUID]
     comment: str | None
