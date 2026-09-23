@@ -5,7 +5,7 @@ const { t, n } = useAppI18n()
 
 const selected = defineModel<string[]>('selected', { required: true })
 const comment = defineModel<string>('comment', { required: true })
-defineProps<{ proposals: Proposal[], pending: boolean, error?: string }>()
+defineProps<{ proposals: Proposal[], pending: boolean, error?: string, taskId?: string }>()
 const emit = defineEmits<{ decide: [] }>()
 </script>
 
@@ -24,26 +24,48 @@ const emit = defineEmits<{ decide: [] }>()
       v-for="(item, index) in proposals"
       :key="item.id"
       :proposal="item"
+      :task-id="taskId"
       :index="index"
       :pending="pending"
       :model-value="selected.includes(item.id)"
       @update:model-value="value => selected = value ? [...selected, item.id] : selected.filter(id => id !== item.id)"
     />
-    <UFormField
-      :label="t('proposal.comment')"
-      :error="error"
+    <div
+      v-if="proposals.length"
+      class="space-y-5 rounded-xl border border-default bg-muted/30 p-5"
     >
-      <UTextarea
-        id="decision-comment"
-        v-model="comment"
-        :maxlength="10000"
-        class="w-full"
+      <p
+        role="status"
+        class="flex items-center gap-2 text-sm font-semibold text-highlighted"
+      >
+        <UIcon
+          name="i-lucide-users-round"
+          class="size-5 text-primary"
+          aria-hidden="true"
+        />
+        {{ t('interface.selected', { count: n(selected.length), total: n(proposals.length) }) }}
+      </p>
+      <UFormField
+        :label="t('proposal.comment')"
+        :error="error"
+      >
+        <UTextarea
+          id="decision-comment"
+          v-model="comment"
+          :maxlength="10000"
+          :rows="3"
+          autoresize
+          :disabled="pending"
+          class="w-full"
+        />
+      </UFormField>
+      <UButton
+        icon="i-lucide-check"
+        size="lg"
+        :label="selected.length ? t('proposal.confirm', { count: n(selected.length) }) : t('proposal.confirmNone')"
+        :loading="pending"
+        @click="emit('decide')"
       />
-    </UFormField>
-    <UButton
-      :label="selected.length ? t('proposal.confirm', { count: n(selected.length) }) : t('proposal.confirmNone')"
-      :loading="pending"
-      @click="emit('decide')"
-    />
+    </div>
   </AppCard>
 </template>

@@ -7,11 +7,12 @@ const { t } = useAppI18n()
 </script>
 
 <template>
-  <dl>
+  <dl data-app-panel>
     <div
       v-for="field in cardFields"
+      :id="`task-${field.key}`"
       :key="field.key"
-      class="grid gap-3 border-b border-default py-6 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-8"
+      class="grid scroll-mt-24 gap-3 border-b border-default py-6 first:pt-0 last:border-0 last:pb-0 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-8"
     >
       <dt class="text-sm font-medium text-muted">
         {{ t(`fields.${field.key}`) }}

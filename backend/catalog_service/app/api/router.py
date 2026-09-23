@@ -7,7 +7,7 @@ from .deps import get_current_user, get_optional_user, get_service
 from ..db.session import db
 from ..core.config import settings
 from ..schemas.domain import (
-    TaskDraftCreate, TaskDraftRead, ClarifyingQuestionRead, ClarifyingQuestionAnswer,
+    TaskDraftCreate, TaskDraftUpdate, TaskDraftRead, ClarifyingQuestionRead, ClarifyingQuestionAnswer,
     TaskCardCreate, TaskCardUpdate, TaskCardRead, TaskCardConfirm, TaskCardPublish, CatalogEntryRead,
     ProposalCreate, ProposalRead, SelectionDecisionCreate, SelectionDecisionRead,
 )
@@ -32,8 +32,10 @@ async def catalog_health():
 
 @api_router.get("")
 async def catalog(limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0),
+                  skills: str = Query('', max_length=500), interests: str = Query('', max_length=500),
                   service=Depends(get_service)):
-    items, total = await service.repo.catalog(limit, offset)
+    from ..services.assistance import keywords
+    items, total = await service.repo.catalog(limit, offset, keywords(skills + ' ' + interests))
     return {"items": [CatalogEntryRead.model_validate(item) for item in items],
             "total": total, "limit": limit, "offset": offset}
 
@@ -52,6 +54,11 @@ async def drafts(user=Depends(get_current_user), service=Depends(get_service)):
 @api_router.get("/drafts/{key}", response_model=TaskDraftRead)
 async def draft(key: UUID, user=Depends(get_current_user), service=Depends(get_service)):
     return await service.draft(key, user)
+
+
+@api_router.patch("/drafts/{key}", response_model=TaskDraftRead)
+async def update_draft(key: UUID, payload: TaskDraftUpdate, user=Depends(get_current_user), service=Depends(get_service)):
+    return await service.update_draft(key, payload, user)
 
 
 @api_router.post("/drafts/{key}/questions", response_model=list[ClarifyingQuestionRead])

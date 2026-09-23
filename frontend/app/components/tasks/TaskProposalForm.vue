@@ -24,10 +24,12 @@ useLocalizedForm(() => proposalForm.value)
       ref="proposalForm"
       :schema="proposalSchema"
       :state="proposal"
-      class="space-y-4"
+      class="space-y-6"
       @submit="emit('submit')"
     >
-      <p>{{ t('proposal.team', { name: teamName || '' }) }}</p>
+      <p class="rounded-xl bg-muted/50 px-4 py-3 text-sm font-medium text-muted">
+        {{ t('proposal.team', { name: teamName || '' }) }}
+      </p>
       <UFormField
         name="idea"
         :label="t('proposal.idea')"
@@ -36,6 +38,9 @@ useLocalizedForm(() => proposalForm.value)
         <UTextarea
           id="proposal-idea"
           v-model="proposal.idea"
+          :rows="4"
+          autoresize
+          size="lg"
           class="w-full"
         />
       </UFormField>
@@ -47,6 +52,9 @@ useLocalizedForm(() => proposalForm.value)
         <UTextarea
           id="proposal-plan"
           v-model="proposal.plan"
+          :rows="4"
+          autoresize
+          size="lg"
           class="w-full"
         />
       </UFormField>
@@ -58,11 +66,16 @@ useLocalizedForm(() => proposalForm.value)
         <UInput
           id="proposal-prototype"
           v-model="proposal.prototype_url"
+          icon="i-lucide-link"
+          placeholder="https://"
+          size="lg"
           class="w-full"
         />
       </UFormField>
       <UButton
         type="submit"
+        icon="i-lucide-send"
+        size="lg"
         :label="t('proposal.send')"
         :loading="pending"
       />

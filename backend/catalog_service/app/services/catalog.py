@@ -68,6 +68,15 @@ class CatalogService:
         ))
         return await self.repo.draft(draft.id)
 
+    async def update_draft(self, key, payload, user):
+        draft = await self.draft(key, user)
+        if await self.repo.card_for_draft(key):
+            raise ConflictError("Draft already has a card")
+        draft.description = payload.description
+        draft.locale = detect_draft_locale(payload.description)
+        await self.save(draft)
+        return await self.repo.draft(key)
+
     async def questions(self, key, user, authorization, settings):
         draft = await self.draft(key, user)
         existing = await self.repo.questions(key)

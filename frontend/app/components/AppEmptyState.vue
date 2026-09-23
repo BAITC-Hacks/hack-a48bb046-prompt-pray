@@ -4,20 +4,22 @@ withDefaults(defineProps<{ title: string, description: string, icon?: string }>(
 
 <template>
   <div class="rounded-2xl border border-dashed border-default bg-muted/30 px-6 py-16 text-center">
-    <UIcon
-      :name="icon"
-      class="mb-4 size-10 text-muted"
-      aria-hidden="true"
-    />
+    <div class="mx-auto mb-5 flex size-16 items-center justify-center rounded-2xl border border-default bg-default shadow-sm">
+      <UIcon
+        :name="icon"
+        class="size-7 text-primary"
+        aria-hidden="true"
+      />
+    </div>
     <h2 class="text-lg font-semibold text-highlighted">
       {{ title }}
     </h2>
-    <p class="mx-auto mt-2 max-w-md text-sm text-muted">
+    <p class="mx-auto mt-2 max-w-md text-sm leading-7 text-muted">
       {{ description }}
     </p>
     <div
       v-if="$slots.default"
-      class="mt-6 flex justify-center gap-3"
+      class="mt-6 flex flex-wrap justify-center gap-3"
     >
       <slot />
     </div>

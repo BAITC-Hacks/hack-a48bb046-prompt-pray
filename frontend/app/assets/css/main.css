@@ -29,3 +29,19 @@
 :root { --ui-radius: 0.625rem; }
 :root:not(.dark) { --ui-bg: #fafbf9; }
 body { -webkit-font-smoothing: antialiased; }
+
+[data-app-page] { padding-block: clamp(2rem, 5vw, 4rem); }
+[data-app-panel] {
+  border: 1px solid var(--ui-border);
+  border-radius: 1rem;
+  background: var(--ui-bg);
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+[data-app-reveal] { animation: app-reveal 400ms ease-out both; }
+@keyframes app-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-app-reveal] { animation: none; }
+}

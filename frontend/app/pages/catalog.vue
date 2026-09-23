@@ -7,11 +7,24 @@ useSeoMeta({ title: () => t('catalog.meta'), description: () => t('catalog.descr
 const api = useApi()
 const { errorMessage } = useApiMessages()
 const page = ref(1)
+const profile = useState('catalog-team-profile', () => ({ skills: '', interests: '' }))
+const personalized = ref(false)
+const applied = ref({ skills: '', interests: '' })
+function applyProfile() {
+  personalized.value = true
+  applied.value = { ...profile.value }
+  page.value = 1
+}
+function resetSort() {
+  personalized.value = false
+  applied.value = { skills: '', interests: '' }
+  page.value = 1
+}
 const limit = 12
 const { data: result, error, status, refresh } = useLazyAsyncData(
   'business-task-catalog',
-  () => api.request<CatalogPage>('/catalog', { query: { limit, offset: (page.value - 1) * limit } }),
-  { watch: [page], server: false }
+  () => api.request<CatalogPage>('/catalog', { query: { limit, offset: (page.value - 1) * limit, ...applied.value } }),
+  { watch: [page, applied], server: false }
 )
 // A client-only request is idle on the server and pending during hydration.
 // Render the same loading state in both cases, never a premature empty catalog.
@@ -19,32 +32,72 @@ const pending = computed(() => status.value === 'idle' || status.value === 'pend
 </script>
 
 <template>
-  <UContainer class="space-y-8 py-12 sm:py-16">
-    <UPageHeader
+  <UContainer
+    data-app-page
+    class="space-y-8"
+  >
+    <AppPageHeading
       :title="t('catalog.title')"
       :description="t('catalog.description')"
+      :eyebrow="t('catalog.headline')"
+      icon="i-lucide-layout-grid"
     >
-      <template #headline>
-        <span class="text-sm font-medium text-primary">{{ t('catalog.headline') }}</span>
-      </template>
-      <template #links>
-        <UButton
-          to="/tasks/new"
-          :label="t('navigation.createTask')"
-          icon="i-lucide-plus"
-          size="lg"
-        />
-      </template>
-    </UPageHeader>
+      <UButton
+        to="/tasks/new"
+        :label="t('navigation.createTask')"
+        icon="i-lucide-plus"
+        size="lg"
+      />
+    </AppPageHeading>
 
-    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-default pb-4">
+    <form
+      class="space-y-4 rounded-xl border border-default p-5"
+      @submit.prevent="applyProfile"
+    >
+      <p class="font-medium">
+        {{ t('ai.forYou') }}
+      </p>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <UFormField :label="t('ai.skills')">
+          <UInput
+            v-model="profile.skills"
+            :maxlength="500"
+            class="w-full"
+          />
+        </UFormField>
+        <UFormField :label="t('ai.interests')">
+          <UInput
+            v-model="profile.interests"
+            :maxlength="500"
+            class="w-full"
+          />
+        </UFormField>
+      </div>
+      <p class="text-xs text-muted">
+        {{ t('ai.matchHint') }}
+      </p>
+      <div class="flex gap-3">
+        <UButton
+          type="submit"
+          :label="t('ai.forYou')"
+          :disabled="pending || !(profile.skills.trim() || profile.interests.trim())"
+        />
+        <UButton
+          :label="t('catalog.sort')"
+          variant="outline"
+          @click="resetSort"
+        />
+      </div>
+    </form>
+
+    <div class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-default bg-muted/40 px-5 py-4">
       <div class="flex items-center gap-2 text-sm font-medium">
         <UIcon
           name="i-lucide-arrow-down-wide-narrow"
           class="size-4 text-muted"
           aria-hidden="true"
         />
-        {{ t('catalog.sort') }}
+        {{ personalized ? t('ai.forYou') : t('catalog.sort') }}
       </div>
       <span
         v-if="result && !pending && !error"
@@ -97,7 +150,10 @@ const pending = computed(() => status.value === 'idle' || status.value === 'pend
         icon="i-lucide-plus"
       />
     </AppEmptyState>
-    <UPageGrid v-else>
+    <UPageGrid
+      v-else
+      data-app-reveal
+    >
       <CatalogTaskCard
         v-for="entry in result.items"
         :key="entry.task_id"

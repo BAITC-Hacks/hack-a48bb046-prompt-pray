@@ -57,6 +57,8 @@ async function onSubmit(payload: FormSubmitEvent<z.output<typeof schema.value>>)
     >
       <USelect
         v-model="role"
+        class="w-full"
+        size="lg"
         :items="[{ label: t('auth.business'), value: 'business' }, { label: t('auth.student'), value: 'student' }]"
       />
     </UFormField>

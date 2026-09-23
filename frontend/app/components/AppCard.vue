@@ -51,12 +51,15 @@ withDefaults(defineProps<{
 [data-variant='outline'] { border: 1px solid var(--ui-border); background: var(--ui-bg); }
 [data-variant='soft'] { background: color-mix(in srgb, var(--ui-bg-muted) 60%, transparent); }
 [data-linked] {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 240px;
   padding: 1.75rem;
-  transition: border-color 180ms ease, background-color 180ms ease;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
-[data-linked]:hover { border-color: var(--ui-primary); background: var(--ui-bg-muted); }
+[data-linked] > footer { margin-top: auto; padding-top: 1rem; }
+[data-linked]:hover { border-color: var(--ui-primary); background: var(--ui-bg-muted); transform: translateY(-3px); box-shadow: 0 8px 24px color-mix(in srgb, var(--ui-primary) 8%, transparent); }
 [data-linked]:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 4px; }
-@media (prefers-reduced-motion: reduce) { [data-linked] { transition: none; } }
+@media (prefers-reduced-motion: reduce) { [data-linked] { transition: none; } [data-linked]:hover { transform: none; } }
 </style>

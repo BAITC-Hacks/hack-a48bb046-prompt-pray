@@ -13,7 +13,7 @@ const steps = [
 <template>
   <main>
     <UPageHero
-      class="relative overflow-hidden"
+      class="relative overflow-hidden bg-gradient-to-b from-primary/5 to-transparent"
       :ui="{ container: 'relative py-24 sm:py-32' }"
     >
       <template #headline>
@@ -66,14 +66,22 @@ const steps = [
       :ui="{ container: 'py-16 sm:py-24' }"
     >
       <UPageGrid>
-        <UPageCard
+        <AppCard
           v-for="step in steps"
           :key="step.id"
-          :icon="step.icon"
           :title="t(`home.steps.${step.id}.title`)"
           :description="t(`home.steps.${step.id}.description`)"
-          variant="naked"
-        />
+        >
+          <template #leading>
+            <div class="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <UIcon
+                :name="step.icon"
+                class="size-6"
+                aria-hidden="true"
+              />
+            </div>
+          </template>
+        </AppCard>
       </UPageGrid>
     </UPageSection>
 

@@ -14,7 +14,7 @@ function load(path, globals) {
   }).outputText
   const exports = {}
   new Function('exports', ...Object.keys(globals), compiled)(exports, ...Object.values(globals))
-  return exports.default
+  return exports.default || exports.isAllowedRequestOrigin
 }
 
 test('both proxies forward the real visitor, preserve SSR context, and discard spoofed IP headers', async () => {
@@ -27,6 +27,7 @@ test('both proxies forward the real visitor, preserve SSR context, and discard s
     readBody: async () => ({ email: 'test@example.com', password: 'password' })
   }
   const middleware = load('../server/middleware/client-ip.ts', globals)
+  globals.isAllowedRequestOrigin = load('../server/utils/request-origin.ts', globals)
   const sent = []
   const gateway = load('../server/api/gateway/[...path].ts', {
     ...globals,
@@ -59,4 +60,48 @@ test('both proxies forward the real visitor, preserve SSR context, and discard s
     await session(event)
     assert.equal(sent.at(-1)['X-Forwarded-For'], ip)
   }
+})
+
+test('origin checks support HTTPS proxies without trusting spoofed forwarding headers', async () => {
+  const config = { gatewayUrl: 'http://gateway', appOrigin: '', trustProxyHeaders: false }
+  const globals = { ...h3, useRuntimeConfig: () => config }
+  const allowed = load('../server/utils/request-origin.ts', globals)
+  const event = {
+    path: '/api/gateway/catalog/drafts',
+    context: { params: { path: 'catalog/drafts', action: 'login' } },
+    node: { req: { method: 'POST', socket: {}, headers: {
+      'host': '127.0.0.1:3000', 'origin': 'https://tasks.example.com',
+      'x-forwarded-host': 'tasks.example.com', 'x-forwarded-proto': 'https',
+      'x-requested-with': 'AI-Sana'
+    } } }
+  }
+  assert.equal(allowed(event), false)
+  config.trustProxyHeaders = true
+  assert.equal(allowed(event), true)
+  config.trustProxyHeaders = false
+  config.appOrigin = 'https://tasks.example.com'
+  assert.equal(allowed(event), true)
+  event.node.req.headers.origin = 'https://attacker.example'
+  assert.equal(allowed(event), false)
+
+  let forwarded = false
+  const routes = {
+    ...globals, isAllowedRequestOrigin: allowed,
+    $fetch: { raw: async () => { forwarded = true } },
+    setResponseHeader: () => {}, setResponseStatus: () => {}
+  }
+  const gateway = load('../server/api/gateway/[...path].ts', routes)
+  const session = load('../server/api/session/[action].post.ts', routes)
+  await assert.rejects(() => gateway(event), error => error.statusCode === 403)
+  assert.equal((await session(event)).code, 'forbidden')
+  assert.equal(forwarded, false)
+
+  delete event.node.req.headers.origin
+  assert.equal(allowed(event), true, 'internal SSR without Origin remains supported')
+  event.node.req.headers['sec-fetch-site'] = 'cross-site'
+  assert.equal(allowed(event), false)
+  delete event.node.req.headers['sec-fetch-site']
+  config.appOrigin = ''
+  event.node.req.headers.origin = 'http://127.0.0.1:3000'
+  assert.equal(allowed(event), true, 'local HTTP ignores untrusted forwarded protocol')
 })
