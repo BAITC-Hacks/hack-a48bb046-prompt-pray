@@ -1,12 +1,17 @@
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
+import logging
 
 from sqlalchemy.exc import IntegrityError
 
 from common.exceptions import BadRequestError, ConflictError, ForbiddenError, NotFoundError
 from ..models import CatalogEntry, ClarifyingQuestion, Proposal, RatingBreakdown, SelectionDecision, TaskCard, TaskDraft
 from ..repositories.catalog import CatalogRepository
-from .questions import generate_questions
+from .questions import AIInvalidResponse, AIUnavailable, generate_questions
+from .fallback_questions import fallback_questions
+from .draft_language import detect_draft_locale
+
+logger = logging.getLogger(__name__)
 
 WEIGHTS = dict(context=20, data=20, expected_result=15, success_criteria=15,
                constraints=10, users=10, business_contact=10)
@@ -59,7 +64,7 @@ class CatalogService:
     async def create_draft(self, payload, user):
         require_role(user, "business")
         draft = await self.save(TaskDraft(
-            business_id=user.id, description=payload.description, locale=payload.locale,
+            business_id=user.id, description=payload.description, locale=detect_draft_locale(payload.description),
         ))
         return await self.repo.draft(draft.id)
 
@@ -69,10 +74,15 @@ class CatalogService:
         if existing:
             return existing
         description = draft.description
-        locale = draft.locale
+        locale = detect_draft_locale(description)
         # Do not hold a database transaction while waiting for the AI provider.
         await self.session.rollback()
-        questions = await generate_questions(description, authorization, settings, locale)
+        try:
+            questions = await generate_questions(description, authorization, settings, locale)
+        except (AIUnavailable, AIInvalidResponse) as exc:
+            # Log only the stable error code; provider bodies can contain secrets.
+            logger.warning("Using fallback clarification questions: %s", exc.code)
+            questions = fallback_questions(locale)
         await self.repo.lock_draft(key)
         # Another request may have completed generation during our AI call.
         existing = await self.repo.questions(key)
