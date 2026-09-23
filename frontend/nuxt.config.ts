@@ -26,12 +26,12 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
-    '/catalog': { prerender: false },
-    '/account': { prerender: false },
-    '/tasks/**': { prerender: false },
-    '/login': { prerender: false },
-    '/signup': { prerender: false },
-    '/api/**': { prerender: false },
+    '/catalog': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
+    '/account': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
+    '/tasks/**': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
+    '/login': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
+    '/signup': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
+    '/api/**': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
     '/docs': { redirect: '/docs/getting-started', prerender: false }
   },
 

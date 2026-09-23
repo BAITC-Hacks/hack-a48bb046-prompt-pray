@@ -12,12 +12,13 @@ class CatalogRepository:
         self.session = session
 
     async def draft(self, key):
-        return await self.session.get(TaskDraft, key)
+        return await self.session.scalar(select(TaskDraft).where(TaskDraft.id == key)
+            .options(selectinload(TaskDraft.card)))
 
     async def drafts(self, business_id):
         return (await self.session.scalars(select(TaskDraft).where(
             TaskDraft.business_id == business_id
-        ).order_by(TaskDraft.created_at.desc()))).all()
+        ).options(selectinload(TaskDraft.card)).order_by(TaskDraft.created_at.desc()))).all()
 
     async def questions(self, draft_id):
         return (await self.session.scalars(select(ClarifyingQuestion).where(

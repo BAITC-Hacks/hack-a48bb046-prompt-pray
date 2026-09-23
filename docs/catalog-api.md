@@ -26,6 +26,9 @@ The catalog accepts `limit` (1–200, default 50) and `offset` (default 0), sort
 descending rating, then publication time, then task ID for stable pagination.
 There is no minimum score for publication or proposals.
 
+Draft responses include `card_id` (null until assembly). The business account uses
+it to resume either the saved draft or its existing card, including unpublished cards.
+
 Question generation calls `ai_service` with the user's access token. The AI receives
 the original draft as data and instructions to return at least three questions
 about missing fields. Invalid JSON/fields/positions produce `502 ai_invalid_response`;

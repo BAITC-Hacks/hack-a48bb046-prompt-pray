@@ -23,6 +23,10 @@ if __name__ == "__main__":
     failed = []
     for service in selected:
         print(f"\n=== {service} ===", flush=True)
+        test_dir = ROOT / service / "tests"
+        if not test_dir.exists() or not any(test_dir.rglob("test_*.py")):
+            print("Нет тестов — пропущено", flush=True)
+            continue
         result = subprocess.run([sys.executable, "-m", "pytest", "-q", *args], cwd=ROOT / service)
         if result.returncode != 0:
             failed.append(service)
