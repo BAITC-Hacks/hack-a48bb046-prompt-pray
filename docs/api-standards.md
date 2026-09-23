@@ -60,8 +60,10 @@
 ## 5. Аутентификация
 
 - Токены выпускает только `auth_service`: `access` (30 мин) + `refresh` (7 дней).
-- Все запросы, кроме `PUBLIC_ENDPOINTS` (`api_gateway/app/core/config.py`: `auth/register`,
-  `auth/login`, `auth/refresh`), — с заголовком `Authorization: Bearer <access_token>`.
+- Все запросы, кроме публичных маршрутов, — с заголовком `Authorization: Bearer <access_token>`.
+  Публичны POST `auth/register`, `auth/login`, `auth/refresh`, GET `/catalog` и
+  GET `/catalog/tasks/{uuid}`. Последний возвращает без авторизации только опубликованную карточку;
+  вложенные отклики и решения не являются публичными.
 - Gateway проверяет подпись и отбрасывает невалидные запросы до сервиса; сервис проверяет токен
   ещё раз сам (`token_user_dependency`) — не полагайтесь на то, что gateway уже всё проверил, если
   сервис теоретически может получить запрос в обход (внутренние вызовы сервис-сервис).

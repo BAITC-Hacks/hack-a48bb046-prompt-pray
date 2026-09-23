@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SERVICES = ["api_gateway", "auth_service", "example_service", "ai_service"]
+SERVICES = ["api_gateway", "auth_service", "example_service", "ai_service", "catalog_service"]
 
 if __name__ == "__main__":
     args = sys.argv[1:]
