@@ -8,7 +8,7 @@ from ..db.session import db
 from ..core.config import settings
 from ..schemas.domain import (
     TaskDraftCreate, TaskDraftRead, ClarifyingQuestionRead, ClarifyingQuestionAnswer,
-    TaskCardCreate, TaskCardUpdate, TaskCardRead, TaskCardConfirm, CatalogEntryRead,
+    TaskCardCreate, TaskCardUpdate, TaskCardRead, TaskCardConfirm, TaskCardPublish, CatalogEntryRead,
     ProposalCreate, ProposalRead, SelectionDecisionCreate, SelectionDecisionRead,
 )
 from ..services.catalog import own, require_role
@@ -92,12 +92,12 @@ async def update_card(key: UUID, payload: TaskCardUpdate, user=Depends(get_curre
 
 @api_router.post("/tasks/{key}/confirm", response_model=TaskCardRead)
 async def confirm(key: UUID, payload: TaskCardConfirm, user=Depends(get_current_user), service=Depends(get_service)):
-    return await service.confirm(key, user)
+    return await service.confirm(key, payload.expected_version, user)
 
 
 @api_router.post("/tasks/{key}/publish", response_model=CatalogEntryRead)
-async def publish(key: UUID, user=Depends(get_current_user), service=Depends(get_service)):
-    return await service.publish(key, user)
+async def publish(key: UUID, payload: TaskCardPublish, user=Depends(get_current_user), service=Depends(get_service)):
+    return await service.publish(key, payload.expected_version, user)
 
 
 @api_router.post("/tasks/{key}/proposals", response_model=ProposalRead, status_code=201)

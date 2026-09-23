@@ -40,7 +40,8 @@ export default defineEventHandler(async (event) => {
       baseURL: useRuntimeConfig(event).gatewayUrl + '/api/v1',
       method: 'POST',
       retry: 0,
-      timeout: 15000
+      timeout: 15000,
+      headers: getRequestIP(event) ? { 'X-Forwarded-For': getRequestIP(event)! } : undefined
     })
     if (action === 'register') {
       const user = await gateway<AuthUser>('/auth/register', { body })

@@ -25,7 +25,10 @@ export default defineEventHandler(async (event) => {
       retry: 0,
       body,
       query: getQuery(event),
-      headers: getHeader(event, 'authorization') ? { authorization: getHeader(event, 'authorization')! } : undefined
+      headers: {
+        ...(getRequestIP(event) ? { 'X-Forwarded-For': getRequestIP(event)! } : {}),
+        ...(getHeader(event, 'authorization') ? { authorization: getHeader(event, 'authorization')! } : {})
+      }
     })
     setResponseStatus(event, response.status)
     const result = response._data

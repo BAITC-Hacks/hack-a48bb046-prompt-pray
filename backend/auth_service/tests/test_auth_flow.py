@@ -34,6 +34,16 @@ async def test_duplicate_registration_conflicts(client):
     assert resp.json()["code"] == "email_taken"
 
 
+async def test_login_by_username(client):
+    await client.post(f"{API}/auth/register", json={**USER, "username": "User1"})
+    response = await client.post(f"{API}/auth/login", json={"email": "User1", "password": USER["password"]})
+    assert response.status_code == 200
+    headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
+    assert (await client.get(f"{API}/users/me", headers=headers)).json()['username'] == 'User1'
+    rejected = await client.post(f"{API}/auth/login", json={"email": "User1", "password": "wrong"})
+    assert rejected.status_code == 401
+
+
 async def test_wrong_password_and_unknown_user_look_the_same(client):
     await client.post(f"{API}/auth/register", json=USER)
     wrong = await client.post(f"{API}/auth/login", json={"email": USER["email"], "password": "nope-nope-nope"})

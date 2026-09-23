@@ -15,12 +15,12 @@ const role = ref<'business' | 'student'>('student')
 const signup = false
 const fields = computed(() => [
   ...(signup ? [{ name: 'username', type: 'text' as const, label: t('auth.username'), required: true }] : []),
-  { name: 'email', type: 'email' as const, label: t('auth.email'), required: true },
+  { name: 'email', type: 'text' as const, label: t('auth.identifier'), required: true },
   { name: 'password', type: 'password' as const, label: t('auth.password'), required: true }
 ])
 const schema = computed(() => z.object({
   username: signup ? z.string({ error: t('validation.required') }).min(3, t('validation.username')).max(50, t('validation.username')).regex(/^[A-Za-z0-9_.-]+$/, t('validation.username')) : z.string({ error: t('validation.required') }).optional(),
-  email: z.email(t('validation.email')),
+  email: z.string({ error: t('validation.identifier') }).trim().min(1, t('validation.identifier')),
   password: z.string({ error: t('validation.required') }).min(signup ? 8 : 1, signup ? t('validation.passwordMin') : t('validation.password')).refine(value => !signup || new TextEncoder().encode(value).length <= 72, t('validation.passwordMax'))
 }))
 const authForm = useTemplateRef('authForm')

@@ -13,9 +13,11 @@ from common.db import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 class TaskDraft(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "task_drafts"
+    __table_args__ = (CheckConstraint("locale IN ('ru', 'kk', 'en')", name="ck_task_drafts_locale"),)
 
     business_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True)
     description: Mapped[str] = mapped_column(Text)
+    locale: Mapped[str] = mapped_column(String(2), nullable=False, default="ru", server_default="ru")
     questions: Mapped[list["ClarifyingQuestion"]] = relationship(
         back_populates="draft", cascade="all, delete-orphan", order_by="ClarifyingQuestion.position"
     )
@@ -45,6 +47,9 @@ class ClarifyingQuestion(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 class TaskCard(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "task_cards"
+    __table_args__ = (CheckConstraint("version >= 1", name="ck_task_cards_version"),)
+
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     draft_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("task_drafts.id"), unique=True)
     business_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True)

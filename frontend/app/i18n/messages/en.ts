@@ -65,6 +65,7 @@ export default {
     noContext: 'No context provided yet'
   },
   auth: {
+    identifier: 'Email or username',
     loginTitle: 'Sign in to AI Sana',
     signupTitle: 'Sign up for AI Sana',
     username: 'Username',
@@ -114,6 +115,18 @@ export default {
     publish: 'Review and publish'
   },
   task: {
+    generating: 'Preparing clarifying questions',
+    generatingHint: 'This may take about a minute. Your draft is saved in your account.',
+    questionLanguage: 'Question language',
+    languageHint: 'Saved with the draft. Descriptions and answers are not translated.',
+    latestLoaded: 'Latest card loaded. Your previous text is saved below for comparison.',
+    textRestored: 'Your text is back in the form. Review the differences before saving.',
+    versionConflict: 'The card was changed in another session',
+    versionConflictHint: 'Your input is saved. Load the latest card and compare changes before saving again.',
+    loadLatest: 'Load latest card',
+    localCopy: 'Your saved input',
+    restoreText: 'Restore my text',
+
     newTitle: 'New business task',
     newDescription: 'Describe your need. Answers to clarifying questions will help prepare the task card.',
     businessOnly: 'Only businesses can create tasks',
@@ -161,6 +174,7 @@ export default {
     confirmNone: 'Confirm: select no teams'
   },
   validation: {
+    identifier: 'Enter your email or username',
     required: 'Complete this field',
     username: '3–50 characters: Latin letters, numbers, _, . or -',
     email: 'Enter a valid email',

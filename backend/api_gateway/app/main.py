@@ -33,6 +33,7 @@ app = create_app(
     rate_limit_per_minute=settings.RATE_LIMIT_PER_MINUTE,
     rate_limit_per_hour=settings.RATE_LIMIT_PER_HOUR,
     trust_proxy_headers=settings.TRUST_PROXY_HEADERS,
+    trusted_proxy_ips=settings.TRUSTED_PROXY_IPS,
 )
 
 

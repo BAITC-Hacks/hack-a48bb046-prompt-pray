@@ -40,6 +40,16 @@ class Settings(BaseServiceSettings):
     RATE_LIMIT_PER_HOUR: int = 1000
     # Включать, только если gateway стоит за доверенным прокси (nginx, Traefik, облачный LB)
     TRUST_PROXY_HEADERS: bool = False
+    # Nuxt on the same host is trusted by default; add its exact address in Docker.
+    TRUSTED_PROXY_IPS: Annotated[list[str], NoDecode] = ["127.0.0.1/32", "::1/128"]
+
+    @field_validator("TRUSTED_PROXY_IPS", mode="before")
+    @classmethod
+    def _parse_proxy_ips(cls, value):
+        from ipaddress import ip_network
+        if isinstance(value, str):
+            value = json.loads(value) if value.strip().startswith("[") else value.split(",")
+        return [str(ip_network(item.strip())) for item in value if item.strip()]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod

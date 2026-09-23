@@ -1,5 +1,6 @@
 """Защитные middleware: заголовки безопасности и rate limiting."""
 import time
+from ipaddress import ip_address, ip_network
 from collections import deque
 from typing import Callable, Iterable
 
@@ -34,8 +35,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     Ограничение частоты запросов по IP (скользящее окно, хранение в памяти процесса).
 
     Подходит для одного экземпляра gateway. При нескольких репликах нужен общий
-    счётчик (например, Redis). Заголовку X-Forwarded-For верим только при
-    trust_proxy_headers=True, то есть когда перед gateway стоит доверенный прокси.
+    счётчик (например, Redis). X-Forwarded-For принимается от trusted_proxy_ips;
+    trust_proxy_headers=True оставлен для полностью изолированной сети прокси.
     """
 
     def __init__(
@@ -45,21 +46,36 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         requests_per_hour: int = 1000,
         exclude_paths: Iterable[str] = ("/health", "/healthz"),
         trust_proxy_headers: bool = False,
+        trusted_proxy_ips: Iterable[str] = (),
     ):
         super().__init__(app)
         self.per_minute = requests_per_minute
         self.per_hour = requests_per_hour
         self.exclude_paths = tuple(exclude_paths)
         self.trust_proxy_headers = trust_proxy_headers
+        self.trusted_proxy_networks = tuple(ip_network(value) for value in trusted_proxy_ips)
         self._hits: dict[str, deque[float]] = {}
         self._last_sweep = time.monotonic()
 
     def _client_ip(self, request: Request) -> str:
-        if self.trust_proxy_headers:
+        peer = request.client.host if request.client else "unknown"
+        try:
+            trusted = any(ip_address(peer) in network for network in self.trusted_proxy_networks)
+        except ValueError:
+            trusted = False
+        if self.trust_proxy_headers or trusted:
             forwarded = request.headers.get("X-Forwarded-For")
             if forwarded:
-                return forwarded.split(",")[0].strip()
-        return request.client.host if request.client else "unknown"
+                # Work from the trusted end of the chain, never a user-supplied prefix.
+                try:
+                    addresses = [ip_address(value.strip()) for value in forwarded.split(",")]
+                except ValueError:
+                    return peer
+                for address in reversed(addresses):
+                    if not any(address in network for network in self.trusted_proxy_networks):
+                        return str(address)
+                return str(addresses[0])
+        return peer
 
     def _sweep(self, now: float) -> None:
         """Раз в минуту выбрасывает IP, от которых давно не было запросов."""

@@ -46,11 +46,12 @@ for (const page of ['login', 'signup']) {
       await renderToString(app)
 
       assert.equal(snapshot.fields.find(field => field.name === 'password').label, composer.t('auth.password'))
-      assert.equal(snapshot.fields.find(field => field.name === 'email').label, composer.t('auth.email'))
+      assert.equal(snapshot.fields.find(field => field.name === 'email').label, composer.t(page === 'login' ? 'auth.identifier' : 'auth.email'))
+      assert.equal(snapshot.schema.safeParse({ username: 'demo_business', email: 'demo_business', password: 'Example-only-123' }).success, page === 'login')
       const result = snapshot.schema.safeParse({})
       assert.equal(result.success, false)
       for (const issue of result.error.issues) {
-        assert.equal(issue.message, composer.t(issue.path[0] === 'email' ? 'validation.email' : 'validation.required'))
+        assert.equal(issue.message, composer.t(issue.path[0] === 'email' ? (page === 'login' ? 'validation.identifier' : 'validation.email') : 'validation.required'))
       }
     })
   }

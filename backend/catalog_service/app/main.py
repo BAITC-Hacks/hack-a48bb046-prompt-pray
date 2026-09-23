@@ -8,14 +8,17 @@ from . import models  # noqa: F401  (регистрирует модели в Ba
 from .api.router import api_router
 from .core.config import settings
 from .db.session import db
+from .db.migrate import upgrade
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await db.wait_until_ready()
-    await db.create_tables()
-    yield
-    await db.dispose()
+    try:
+        await upgrade(db.engine)
+        yield
+    finally:
+        await db.dispose()
 
 
 app = create_app(

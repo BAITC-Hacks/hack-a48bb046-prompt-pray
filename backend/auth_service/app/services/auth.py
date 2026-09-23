@@ -42,7 +42,8 @@ class AuthService:
         return user
 
     async def authenticate(self, email: str, password: str) -> User:
-        user = await self.users.get_by_email(email)
+        user = (await self.users.get_by_email(email) if '@' in email
+                else await self.users.get_by_username(email))
         password_ok = await verify_password(password, user.hashed_password if user else None)
         # Одинаковый ответ для «нет пользователя» и «неверный пароль»
         if not user or not password_ok or not user.is_active:

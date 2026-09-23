@@ -73,6 +73,7 @@ async def test_tables_relationships_and_serialization(db):
         assert result.task.context is None
         assert result.task.rating.total == 20
         assert result.task.rating.readiness == "черновик"
+        assert result.model_dump()["task"]["rating"]["readiness_code"] == "draft"
         stored = (await session.scalars(select(SelectionDecision).options(
             selectinload(SelectionDecision.selected_proposals)
         ))).all()
@@ -116,11 +117,13 @@ async def test_service_startup_creates_domain_tables(monkeypatch):
         assert {"task_drafts", "task_cards", "selection_decisions"} <= set(tables)
 
 
-@pytest.mark.parametrize("score,level", [
-    (0, "черновик"), (39, "черновик"), (40, "рабочая"), (69, "рабочая"),
-    (70, "готовая"), (89, "готовая"), (90, "приоритетная"), (100, "приоритетная"),
+@pytest.mark.parametrize("score,level,code", [
+    (0, "черновик", "draft"), (39, "черновик", "draft"),
+    (40, "рабочая", "working"), (69, "рабочая", "working"),
+    (70, "готовая", "ready"), (89, "готовая", "ready"),
+    (90, "приоритетная", "priority"), (100, "приоритетная", "priority"),
 ])
-def test_rating_boundaries(score, level):
+def test_rating_boundaries(score, level, code):
     remaining = score
     values = {}
     for field, maximum in zip(RatingBreakdownRead.model_fields, [20, 20, 15, 15, 10, 10, 10]):
@@ -129,17 +132,18 @@ def test_rating_boundaries(score, level):
     rating = RatingBreakdownRead(**values)
     assert rating.model_dump()["total"] == score
     assert rating.model_dump()["readiness"] == level
+    assert rating.model_dump(mode="json")["readiness_code"] == code
     with pytest.raises(ValidationError):
         RatingBreakdownRead(**{**values, "users": 11})
 
 
 def test_patch_distinguishes_omitted_and_cleared_fields():
-    assert TaskCardUpdate().model_dump(exclude_unset=True) == {}
-    assert TaskCardUpdate(context=None).model_dump(exclude_unset=True) == {"context": None}
+    assert TaskCardUpdate(expected_version=1).model_dump(exclude_unset=True) == {"expected_version": 1}
+    assert TaskCardUpdate(expected_version=1, context=None).model_dump(exclude_unset=True) == {"context": None, "expected_version": 1}
     assert TaskCardCreate(title="  Задача  ").title == "Задача"
     for payload in ({"title": None}, {"title": "  "}, {"rating": 100}, {"business_id": str(uuid4())}):
         with pytest.raises(ValidationError):
-            TaskCardUpdate(**payload)
+            TaskCardUpdate(expected_version=1, **payload)
     with pytest.raises(ValidationError):
         TaskDraftCreate(description="   ")
 
@@ -159,8 +163,8 @@ def test_decision_is_explicit_and_prototype_is_http_url():
         with pytest.raises(ValidationError):
             SelectionDecisionCreate(**payload)
     with pytest.raises(ValidationError):
-        TaskCardConfirm(confirmed=False)
-    assert TaskCardConfirm(confirmed=True).confirmed
+        TaskCardConfirm(confirmed=False, expected_version=1)
+    assert TaskCardConfirm(confirmed=True, expected_version=1).confirmed
     proposal = dict(team_id=uuid4(), idea="Идея", plan="План")
     assert ProposalCreate(**proposal).prototype_url is None
     with pytest.raises(ValidationError):

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import * as z from 'zod'
 import type { ApiError } from '~/types/api'
-import type { Draft, Question, Card } from '~/types/catalog'
+import type { Draft, DraftLocale, Question, Card } from '~/types/catalog'
 
-const { t } = useAppI18n()
+const { t, locale } = useAppI18n()
 
 definePageMeta({ middleware: 'auth' })
 useSeoMeta({ title: () => t('task.newTitle'), description: () => t('task.newDescription') })
@@ -12,7 +12,8 @@ const { errorMessage, fieldErrors } = useApiMessages()
 const canCreateTask = computed(() => api.user.value?.role === 'business')
 const app = useNuxtApp()
 const route = useRoute()
-const state = reactive({ description: '', title: '' })
+const state = reactive({ description: '', title: '', locale: locale.value as DraftLocale })
+const languages = [{ label: 'Русский', value: 'ru' }, { label: 'Қазақша', value: 'kk' }, { label: 'English', value: 'en' }]
 const schema = computed(() => z.object({ description: z.string({ error: t('validation.required') }).trim().min(1, t('validation.description')).max(32000, t('validation.max', { max: 32000 })) }))
 const draftForm = useTemplateRef('draftForm')
 const titleForm = useTemplateRef('titleForm')
@@ -21,11 +22,13 @@ useLocalizedForm(() => titleForm.value)
 const draft = ref<Draft | null>(null)
 const questions = ref<Question[]>([])
 const pending = ref(false)
+const generatingQuestions = ref(false)
 const error = ref<ApiError | null>(null)
 const answers = reactive<Record<string, string>>({})
 const answerErrors = reactive<Record<string, string | ApiError>>({})
 
 async function action(work: () => Promise<void>) {
+  if (pending.value) return
   pending.value = true
   error.value = null
   try {
@@ -37,14 +40,21 @@ async function action(work: () => Promise<void>) {
   }
 }
 async function loadQuestions() {
-  questions.value = await api.request<Question[]>(`/catalog/drafts/${draft.value!.id}/questions`, { method: 'POST' })
-  for (const question of questions.value) answers[question.id] = question.answer || ''
+  generatingQuestions.value = true
+  try {
+    questions.value = await api.request<Question[]>(`/catalog/drafts/${draft.value!.id}/questions`, { method: 'POST' })
+    for (const question of questions.value) answers[question.id] ??= question.answer || ''
+  } finally {
+    generatingQuestions.value = false
+  }
 }
 async function createDraft() {
   if (!canCreateTask.value) return
   await action(async () => {
     if (!draft.value) {
-      draft.value = await api.request<Draft>('/catalog/drafts', { method: 'POST', body: { description: state.description } })
+      draft.value = await api.request<Draft>('/catalog/drafts', {
+        method: 'POST', body: { description: state.description, locale: state.locale }
+      })
       await app.runWithContext(() => navigateTo({ query: { draft: draft.value!.id } }, { replace: true }))
     }
     await loadQuestions()
@@ -85,6 +95,7 @@ if (typeof route.query.draft === 'string') {
       return
     }
     state.description = draft.value.description
+    state.locale = draft.value.locale
     questions.value = await api.request<Question[]>(`/catalog/drafts/${draft.value.id}/questions`)
     for (const question of questions.value) answers[question.id] = question.answer || ''
   })
@@ -103,6 +114,13 @@ if (typeof route.query.draft === 'string') {
       color="error"
       :title="errorMessage(error)"
     />
+    <UAlert
+      v-if="generatingQuestions"
+      :title="t('task.generating')"
+      :description="t('task.generatingHint')"
+      icon="i-lucide-loader-circle"
+      role="status"
+    />
     <UForm
       ref="draftForm"
       :schema="schema"
@@ -110,6 +128,19 @@ if (typeof route.query.draft === 'string') {
       class="space-y-4 rounded-2xl border border-default bg-default p-6"
       @submit="createDraft"
     >
+      <UFormField
+        :label="t('task.questionLanguage')"
+        name="locale"
+        :description="t('task.languageHint')"
+        :error="fieldErrors(error).locale"
+      >
+        <USelect
+          v-model="state.locale"
+          :items="languages"
+          :disabled="!!draft || pending"
+          class="w-full"
+        />
+      </UFormField>
       <UFormField
         :label="t('task.problem')"
         name="description"

@@ -6,6 +6,7 @@ AI provider calls are covered separately by catalog_service tests.
 import os
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -23,12 +24,21 @@ def main():
     processes = []
     logs = []
     with tempfile.TemporaryDirectory(prefix="ai-sana-integration-") as directory:
+        sockets = [socket.socket() for _ in range(4)]
+        try:
+            for listener in sockets:
+                listener.bind(("127.0.0.1", 0))
+            auth_port, catalog_port, gateway_port, frontend_port = [s.getsockname()[1] for s in sockets]
+        finally:
+            for listener in sockets:
+                listener.close()
         env = {**os.environ, "ENV": "development", "JWT_SECRET_KEY": SECRET,
-               "PYTHONPATH": str(ROOT), "AUTH_SERVICE_URL": "http://127.0.0.1:18001",
-               "CATALOG_SERVICE_URL": "http://127.0.0.1:18004", "RATE_LIMIT_PER_MINUTE": "1000",
-               "NUXT_GATEWAY_URL": "http://127.0.0.1:18000", "NUXT_PUBLIC_API_BASE": "/api/gateway",
-               "AUTH_TEST_FRONTEND": "http://127.0.0.1:13000",
-               "AUTH_TEST_GATEWAY": "http://127.0.0.1:18000/api/v1",
+               "PYTHONPATH": str(ROOT), "AUTH_SERVICE_URL": f"http://127.0.0.1:{auth_port}",
+               "CATALOG_SERVICE_URL": f"http://127.0.0.1:{catalog_port}", "RATE_LIMIT_PER_MINUTE": "1000",
+               "NUXT_GATEWAY_URL": f"http://127.0.0.1:{gateway_port}", "NUXT_PUBLIC_API_BASE": "/api/gateway",
+               "NUXT_BUILD_DIR": str(FRONTEND / "node_modules/.cache/nuxt" / Path(directory).name),
+               "AUTH_TEST_FRONTEND": f"http://127.0.0.1:{frontend_port}",
+               "AUTH_TEST_GATEWAY": f"http://127.0.0.1:{gateway_port}/api/v1",
                "AUTH_TEST_JWT_SECRET": SECRET, "NUXT_TELEMETRY_DISABLED": "1"}
         node = shutil.which("node")
         if not node:
@@ -55,14 +65,14 @@ def main():
             raise RuntimeError(f"Server did not become ready: {url}")
 
         try:
-            for name, port in [("auth_service", 18001), ("catalog_service", 18004), ("api_gateway", 18000)]:
-                launch(name, [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(port)],
+            for name, port in [("auth_service", auth_port), ("catalog_service", catalog_port), ("api_gateway", gateway_port)]:
+                launch(name, [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(port), "--no-proxy-headers"],
                        ROOT / name, {"DATABASE_URL": f"sqlite+aiosqlite:///{Path(directory, name + '.db').as_posix()}"})
-            wait("http://127.0.0.1:18001/health")
-            wait("http://127.0.0.1:18004/health")
-            wait("http://127.0.0.1:18000/healthz")
-            launch("nuxt", [node, "node_modules/nuxt/bin/nuxt.mjs", "dev", "--host", "127.0.0.1", "--port", "13000"], FRONTEND)
-            wait("http://127.0.0.1:13000/api/gateway/healthz")
+            wait(f"http://127.0.0.1:{auth_port}/health")
+            wait(f"http://127.0.0.1:{catalog_port}/health")
+            wait(f"http://127.0.0.1:{gateway_port}/healthz")
+            launch("nuxt", [node, "node_modules/nuxt/bin/nuxt.mjs", "dev", "--host", "127.0.0.1", "--port", str(frontend_port)], FRONTEND)
+            wait(f"http://127.0.0.1:{frontend_port}/api/gateway/healthz")
             for test in ["auth.integration.mjs", "catalog.integration.mjs"]:
                 subprocess.run([node, f"tests/{test}"], cwd=FRONTEND, env=env, check=True, timeout=180)
         except Exception:

@@ -60,6 +60,8 @@
 ## 5. Аутентификация
 
 - Токены выпускает только `auth_service`: `access` (30 мин) + `refresh` (7 дней).
+- `POST /auth/login` принимает `{email, password}`; поле `email` допускает также имя
+  пользователя. Email нормализуется в нижний регистр, имя пользователя — нет.
 - Все запросы, кроме публичных маршрутов, — с заголовком `Authorization: Bearer <access_token>`.
   Публичны POST `auth/register`, `auth/login`, `auth/refresh`, GET `/catalog` и
   GET `/catalog/tasks/{uuid}`. Последний возвращает без авторизации только опубликованную карточку;

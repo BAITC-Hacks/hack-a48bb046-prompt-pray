@@ -22,8 +22,12 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     gatewayUrl: 'http://127.0.0.1:8000',
+    // Enable only behind a proxy that overwrites X-Forwarded-For.
+    trustProxyHeaders: false,
     public: { apiBase: '/api/gateway' }
   },
+
+  buildDir: process.env.NUXT_BUILD_DIR || undefined,
 
   routeRules: {
     '/': { prerender: false, headers: { 'cache-control': 'private, no-store' } },

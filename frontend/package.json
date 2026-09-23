@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "test:auth": "node tests/auth.integration.mjs",
+    "test:proxy": "node --test tests/client-ip.test.mjs",
     "test:catalog": "node tests/catalog.integration.mjs",
+    "test:draft-locale": "node --test tests/draft-locale.test.mjs",
+    "test:card-version": "node --test tests/card-version.test.mjs",
     "test:i18n": "node tests/i18n.test.mjs && node --test tests/auth-language.test.mjs",
     "test:i18n:ssr": "node tests/i18n.integration.mjs"
   },

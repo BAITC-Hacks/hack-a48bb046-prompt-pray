@@ -10,7 +10,10 @@ CardField = Literal[
     "constraints", "users", "business_contact",
 ]
 Content = Annotated[str, Field(min_length=1, max_length=10_000)]
+# A draft plus seven answers and their separating newlines must remain editable.
+CardContent = Annotated[str, Field(min_length=1, max_length=102_007)]
 Title = Annotated[str, Field(min_length=1, max_length=200)]
+DraftLocale = Literal["ru", "kk", "en"]
 
 
 class Request(BaseModel):
@@ -29,11 +32,13 @@ class EntityRead(Read):
 
 class TaskDraftCreate(Request):
     description: Annotated[str, Field(min_length=1, max_length=32_000)]
+    locale: DraftLocale = "ru"
 
 
 class TaskDraftRead(EntityRead):
     business_id: UUID
     description: str
+    locale: DraftLocale
     card_id: UUID | None
 
 
@@ -44,7 +49,7 @@ class ClarifyingQuestionCreate(Request):
 
 
 class ClarifyingQuestionsCreate(Request):
-    questions: list[ClarifyingQuestionCreate] = Field(min_length=3)
+    questions: list[ClarifyingQuestionCreate] = Field(min_length=3, max_length=7)
 
     @field_validator("questions")
     @classmethod
@@ -68,13 +73,13 @@ class ClarifyingQuestionRead(EntityRead):
 
 class CardFields(Request):
     # Missing data stays absent; low completeness must not block publication/proposals.
-    context: Content | None = None
-    data: Content | None = None
-    expected_result: Content | None = None
-    success_criteria: Content | None = None
-    constraints: Content | None = None
-    users: Content | None = None
-    business_contact: Content | None = None
+    context: CardContent | None = None
+    data: CardContent | None = None
+    expected_result: CardContent | None = None
+    success_criteria: CardContent | None = None
+    constraints: CardContent | None = None
+    users: CardContent | None = None
+    business_contact: CardContent | None = None
 
 
 class TaskCardCreate(CardFields):
@@ -82,6 +87,7 @@ class TaskCardCreate(CardFields):
 
 
 class TaskCardUpdate(CardFields):
+    expected_version: int = Field(ge=1, strict=True)
     title: Title | None = None
 
     @field_validator("title")
@@ -93,7 +99,12 @@ class TaskCardUpdate(CardFields):
 
 
 class TaskCardConfirm(Request):
+    expected_version: int = Field(ge=1, strict=True)
     confirmed: Literal[True]
+
+
+class TaskCardPublish(Request):
+    expected_version: int = Field(ge=1, strict=True)
 
 
 class RatingBreakdownRead(Read):
@@ -112,17 +123,28 @@ class RatingBreakdownRead(Read):
 
     @computed_field
     @property
-    def readiness(self) -> Literal["черновик", "рабочая", "готовая", "приоритетная"]:
+    def readiness_code(self) -> Literal["draft", "working", "ready", "priority"]:
         if self.total < 40:
-            return "черновик"
+            return "draft"
         if self.total < 70:
-            return "рабочая"
+            return "working"
         if self.total < 90:
-            return "готовая"
-        return "приоритетная"
+            return "ready"
+        return "priority"
+
+    @computed_field
+    @property
+    def readiness(self) -> Literal["черновик", "рабочая", "готовая", "приоритетная"]:
+        return {
+            "draft": "черновик",
+            "working": "рабочая",
+            "ready": "готовая",
+            "priority": "приоритетная",
+        }[self.readiness_code]
 
 
 class TaskCardRead(EntityRead):
+    version: int
     draft_id: UUID
     business_id: UUID
     title: str
