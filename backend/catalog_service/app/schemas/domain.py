@@ -36,6 +36,10 @@ class TaskDraftCreate(Request):
     locale: DraftLocale = "ru"
 
 
+class TaskDraftUpdate(Request):
+    description: Annotated[str, Field(min_length=1, max_length=32_000)]
+
+
 class TaskDraftRead(EntityRead):
     business_id: UUID
     description: str

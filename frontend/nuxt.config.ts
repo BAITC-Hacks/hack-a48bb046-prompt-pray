@@ -22,7 +22,9 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     gatewayUrl: 'http://127.0.0.1:8000',
-    // Enable only behind a proxy that overwrites X-Forwarded-For.
+    // External origin, e.g. https://tasks.example.com (no path).
+    appOrigin: '',
+    // Enable only behind a proxy that overwrites forwarded host, proto and IP.
     trustProxyHeaders: false,
     public: { apiBase: '/api/gateway' }
   },

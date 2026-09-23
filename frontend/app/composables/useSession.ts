@@ -20,7 +20,7 @@ export function useSession() {
   async function request<T>(action: string, body?: LoginInput | RegisterInput) {
     try {
       const response = await $fetch.raw<T>(`/api/session/${action}`, {
-        method: 'POST', body, headers: { ...requestHeaders, 'X-Requested-With': 'AI-Sana' }, retry: 0,
+        method: 'POST', body, headers: { ...requestHeaders, 'X-Requested-With': 'AI-Sana' }, retry: 0, timeout: 20000,
         ...(requestEvent ? { context: requestEvent.context } : {})
       })
       if (responseCookies) responseCookies.value = response.headers.getSetCookie()

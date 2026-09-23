@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   // A custom header prevents cross-origin forms from mutating the session.
   // No CORS permissions are granted on these same-origin Nitro routes.
   if (getHeader(event, 'x-requested-with') !== 'AI-Sana'
-    || getHeader(event, 'sec-fetch-site') === 'cross-site') {
+    || !isAllowedRequestOrigin(event)) {
     setResponseStatus(event, 403)
     return { detail: 'Запрос с другого сайта запрещён', code: 'forbidden' }
   }

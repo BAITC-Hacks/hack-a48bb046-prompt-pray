@@ -3,8 +3,7 @@ export default defineEventHandler(async (event) => {
   if (!/^[a-zA-Z0-9_/-]+$/.test(path) || path.includes('..')) throw createError({ statusCode: 400 })
   const method = getMethod(event)
   if (!['GET', 'HEAD'].includes(method)) {
-    const origin = getHeader(event, 'origin')
-    if (origin && origin !== getRequestURL(event).origin) throw createError({ statusCode: 403, data: { detail: 'Недопустимый источник запроса', code: 'forbidden' } })
+    if (!isAllowedRequestOrigin(event)) throw createError({ statusCode: 403, data: { detail: 'Недопустимый источник запроса', code: 'forbidden' } })
   }
   const cookie = 'ai-sana-refresh'
   const cookieOptions = { httpOnly: true, secure: !import.meta.dev, sameSite: 'lax' as const, path: '/', maxAge: 60 * 60 * 24 * 7 }
@@ -23,6 +22,7 @@ export default defineEventHandler(async (event) => {
     const response = await $fetch.raw<Record<string, unknown>>(`${config.gatewayUrl}${path === 'healthz' ? '/healthz' : `/api/v1/${path}`}`, {
       method,
       retry: 0,
+      timeout: method === 'POST' && /\/(questions|rating-advice|analysis|title|similar|next-question)$/.test(path) ? 80000 : 15000,
       body,
       query: getQuery(event),
       headers: {
@@ -39,8 +39,12 @@ export default defineEventHandler(async (event) => {
     }
     return result
   } catch (cause) {
-    const error = cause as { statusCode?: number, data?: unknown }
+    const error = cause as { statusCode?: number, data?: unknown, cause?: { name?: string } }
     if (path === 'auth/refresh' && error.statusCode === 401) deleteCookie(event, cookie, cookieOptions)
-    throw createError({ statusCode: error.statusCode || 502, data: error.data || { detail: 'Gateway недоступен', code: 'gateway_unavailable' } })
+    const timedOut = error.cause?.name === 'TimeoutError' || error.cause?.name === 'AbortError'
+    throw createError({ statusCode: error.statusCode || (timedOut ? 504 : 502), data: error.data || {
+      detail: timedOut ? 'Gateway не ответил вовремя' : 'Gateway недоступен',
+      code: timedOut ? 'upstream_timeout' : 'gateway_unavailable'
+    } })
   }
 })

@@ -19,6 +19,7 @@ const titleForm = useTemplateRef('titleForm')
 useLocalizedForm(() => draftForm.value)
 useLocalizedForm(() => titleForm.value)
 const draft = ref<Draft | null>(null)
+const descriptionChanged = computed(() => !!draft.value && state.description.trim() !== draft.value.description)
 const questions = ref<Question[]>([])
 const pending = ref(false)
 const generatingQuestions = ref(false)
@@ -28,6 +29,40 @@ const answers = reactive<Record<string, string>>({})
 const answeredCount = computed(() => questions.value.filter(question => answers[question.id]?.trim()).length)
 const savedCount = computed(() => questions.value.filter(question => question.answer && question.answer === answers[question.id]).length)
 const answerErrors = reactive<Record<string, string | ApiError>>({})
+const dialogue = ref(true)
+const visibleQuestions = computed(() => dialogue.value
+  ? questions.value.filter(question => question.answer || question === questions.value.find(item => !item.answer))
+  : questions.value)
+const similar = ref<{ task_id: string, reason: string }[] | null>(null)
+const similarPending = ref(false)
+const similarError = ref<unknown>(null)
+
+async function checkSimilar() {
+  if (!draft.value || similarPending.value) return
+  similarPending.value = true
+  similarError.value = null
+  try {
+    const result = await api.request<{ matches: { task_id: string, reason: string }[] }>(`/catalog/drafts/${draft.value.id}/similar`, { method: 'POST' })
+    similar.value = result.matches
+  } catch (cause) {
+    similarError.value = cause
+  } finally {
+    similarPending.value = false
+  }
+}
+async function suggestTitle() {
+  await saveDescription()
+  const result = await api.request<{ title: string }>(`/catalog/drafts/${draft.value!.id}/title`, { method: 'POST' })
+  state.title = result.title
+}
+async function adaptNextQuestion() {
+  const target = questions.value.find(question => !question.answer)
+  // Keep a locally started answer attached to its original question.
+  if (!target || answers[target.id]?.trim()) return
+  await saveDescription()
+  const next = await api.request<Question>(`/catalog/drafts/${draft.value!.id}/next-question`, { method: 'POST' })
+  questions.value = questions.value.map(question => question.id === next.id ? next : question)
+}
 
 async function action(work: () => Promise<void>) {
   if (pending.value) return
@@ -50,6 +85,13 @@ async function loadQuestions() {
     generatingQuestions.value = false
   }
 }
+async function saveDescription() {
+  if (!draft.value || !descriptionChanged.value) return
+  draft.value = await api.request<Draft>(`/catalog/drafts/${draft.value.id}`, {
+    method: 'PATCH', body: { description: state.description }
+  })
+  state.description = draft.value.description
+}
 async function createDraft() {
   if (!canCreateTask.value) return
   await action(async () => {
@@ -59,7 +101,9 @@ async function createDraft() {
       })
       await app.runWithContext(() => navigateTo({ query: { draft: draft.value!.id } }, { replace: true }))
     }
-    await loadQuestions()
+    await saveDescription()
+    if (!questions.value.length) await loadQuestions()
+    void checkSimilar()
   })
 }
 async function saveAnswer(question: Question) {
@@ -76,17 +120,20 @@ async function saveAnswer(question: Question) {
       answerErrors[question.id] = cause as ApiError
       throw cause
     }
+    if (dialogue.value) await adaptNextQuestion()
   })
 }
 async function assemble() {
   await action(async () => {
     assemblingCard.value = true
     try {
+      await saveDescription()
       for (const question of questions.value) {
         if (answers[question.id]?.trim() && answers[question.id] !== question.answer) {
           await api.request(`/catalog/questions/${question.id}`, { method: 'PATCH', body: { answer: answers[question.id] } })
         }
       }
+      if (!state.title.trim()) await suggestTitle()
       const card = await api.request<Card>(`/catalog/drafts/${draft.value!.id}/card`, { method: 'POST', body: { title: state.title } })
       await app.runWithContext(() => navigateTo(`/tasks/${card.id}`))
     } finally {
@@ -135,7 +182,7 @@ if (typeof route.query.draft === 'string') {
           </p>
         </div>
         <UBadge
-          v-if="draft"
+          v-if="draft && !descriptionChanged"
           icon="i-lucide-cloud-check"
           color="neutral"
           variant="soft"
@@ -187,19 +234,7 @@ if (typeof route.query.draft === 'string') {
               </div>
             </div>
             <div class="space-y-6 p-6 sm:p-7">
-              <details
-                v-if="questions.length"
-                class="rounded-xl border border-default bg-muted/30 p-4"
-              >
-                <summary class="cursor-pointer text-sm font-medium text-highlighted focus-visible:outline-2 focus-visible:outline-primary">
-                  {{ t('creation.originalDescription') }}
-                </summary>
-                <p class="mt-3 text-sm leading-7 whitespace-pre-wrap break-words text-muted">
-                  {{ state.description }}
-                </p>
-              </details>
               <UFormField
-                v-else
                 :label="t('task.problem')"
                 name="description"
                 :error="fieldErrors(error).description"
@@ -207,7 +242,7 @@ if (typeof route.query.draft === 'string') {
               >
                 <UTextarea
                   v-model="state.description"
-                  :disabled="!!draft || pending"
+                  :disabled="pending"
                   :placeholder="t('task.placeholder')"
                   :rows="8"
                   :maxlength="32000"
@@ -232,7 +267,6 @@ if (typeof route.query.draft === 'string') {
                 variant="soft"
               />
               <div
-                v-if="!questions.length"
                 class="flex flex-wrap items-center justify-between gap-4 border-t border-default pt-5"
               >
                 <p class="flex items-center gap-2 text-xs text-muted">
@@ -244,8 +278,8 @@ if (typeof route.query.draft === 'string') {
                 <UButton
                   type="submit"
                   :loading="pending"
-                  :disabled="!canCreateTask"
-                  :label="draft ? t('task.retry') : t('task.getQuestions')"
+                  :disabled="!canCreateTask || (!!questions.length && !descriptionChanged)"
+                  :label="questions.length ? t('task.save') : draft && !descriptionChanged ? t('task.retry') : t('task.getQuestions')"
                   trailing-icon="i-lucide-arrow-right"
                   size="lg"
                   class="rounded-xl"
@@ -254,6 +288,43 @@ if (typeof route.query.draft === 'string') {
             </div>
           </UForm>
           <template v-if="canCreateTask && questions.length">
+            <section class="space-y-3 rounded-2xl border border-default bg-default p-6">
+              <UButton
+                :label="t('ai.similar')"
+                :loading="similarPending"
+                variant="soft"
+                @click="checkSimilar"
+              />
+              <p class="text-xs text-muted">
+                {{ t('ai.similarHint') }}
+              </p>
+              <UAlert
+                v-if="similarError"
+                color="error"
+                :title="errorMessage(similarError)"
+              />
+              <p
+                v-if="similar?.length === 0"
+                class="text-sm text-muted"
+              >
+                {{ t('ai.noSimilar') }}
+              </p>
+              <ul
+                v-if="similar?.length"
+                class="space-y-3"
+              >
+                <li
+                  v-for="match in similar"
+                  :key="match.task_id"
+                >
+                  <NuxtLink
+                    :to="`/tasks/${match.task_id}`"
+                    target="_blank"
+                    class="text-sm text-primary underline"
+                  >{{ match.reason }}</NuxtLink>
+                </li>
+              </ul>
+            </section>
             <section
               data-reveal
               class="rounded-2xl border border-default bg-default p-6 sm:p-7"
@@ -284,6 +355,18 @@ if (typeof route.query.draft === 'string') {
               <p class="mb-4 text-sm leading-6 text-muted">
                 {{ t('task.unknownHint') }}
               </p>
+              <USwitch
+                v-model="dialogue"
+                :disabled="pending"
+                :label="t('ai.dialogue')"
+                class="mb-4"
+              />
+              <p
+                v-if="dialogue"
+                class="mb-4 text-sm text-muted"
+              >
+                {{ t('ai.dialogueHint') }}
+              </p>
               <UProgress
                 :model-value="answeredCount"
                 :max="questions.length"
@@ -292,7 +375,7 @@ if (typeof route.query.draft === 'string') {
                 class="mb-3"
               />
               <TasksTaskQuestion
-                v-for="(question, index) in questions"
+                v-for="(question, index) in visibleQuestions"
                 :key="question.id"
                 v-model="answers[question.id]"
                 data-ai-question
@@ -302,6 +385,13 @@ if (typeof route.query.draft === 'string') {
                 :pending="pending"
                 :error="answerErrors[question.id] ? typeof answerErrors[question.id] === 'string' ? t(String(answerErrors[question.id])) : errorMessage(answerErrors[question.id]) : undefined"
                 @save="saveAnswer(question)"
+              />
+              <UButton
+                v-if="dialogue && questions.some(question => !question.answer)"
+                :label="t('ai.next')"
+                :loading="pending"
+                variant="link"
+                @click="action(adaptNextQuestion)"
               />
               <p
                 class="border-t border-default pt-4 text-xs leading-5 text-muted"
@@ -314,7 +404,7 @@ if (typeof route.query.draft === 'string') {
               ref="titleForm"
               data-reveal
               style="--reveal-delay: 180ms"
-              :schema="z.object({ title: z.string({ error: t('validation.required') }).trim().min(1, t('validation.title')).max(200, t('validation.max', { max: 200 })) })"
+              :schema="z.object({ title: z.string().trim().max(200, t('validation.max', { max: 200 })) })"
               :state="state"
               class="space-y-5 rounded-2xl border border-primary/25 bg-primary/5 p-6 sm:p-7"
               @submit="assemble"
@@ -330,7 +420,6 @@ if (typeof route.query.draft === 'string') {
                 name="title"
                 :label="t('task.title')"
                 :error="fieldErrors(error).title"
-                required
               >
                 <UInput
                   v-model="state.title"
@@ -341,6 +430,16 @@ if (typeof route.query.draft === 'string') {
                   class="w-full"
                 />
               </UFormField>
+              <p class="text-sm text-muted">
+                {{ t('ai.titleHint') }}
+              </p>
+              <UButton
+                :label="t('ai.title')"
+                :loading="pending"
+                variant="soft"
+                icon="i-lucide-sparkles"
+                @click="action(suggestTitle)"
+              />
               <div class="flex flex-wrap items-center justify-between gap-4 border-t border-primary/15 pt-5">
                 <p class="max-w-sm text-xs leading-5 text-muted">
                   {{ t('creation.reviewHint') }}

@@ -44,7 +44,9 @@ provide('navigation', navigation)
       Выполняем запрос…
     </div>
     <NuxtLayout>
-      <NuxtPage />
+      <AuthAvailability>
+        <NuxtPage />
+      </AuthAvailability>
     </NuxtLayout>
     <ClientOnly>
       <LazyUContentSearch

@@ -2,13 +2,14 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { test } from 'node:test'
-import { compileScript, parse } from '@vue/compiler-sfc'
-import { createSSRApp, h, ref, computed, useTemplateRef } from 'vue'
-import { renderToString } from 'vue/server-renderer'
 import ts from 'typescript'
 import { createAppI18n } from './helpers/i18n.mjs'
 
 const require = createRequire(import.meta.url)
+const nuxtRequire = createRequire(require.resolve('nuxt/package.json'))
+const { compileScript, parse } = nuxtRequire('vue/compiler-sfc')
+const { createSSRApp, h, ref, computed, useTemplateRef } = nuxtRequire('vue')
+const { renderToString } = nuxtRequire('vue/server-renderer')
 
 for (const page of ['login', 'signup']) {
   const { descriptor } = parse(readFileSync(new URL(`../app/pages/${page}.vue`, import.meta.url), 'utf8'))
@@ -31,7 +32,8 @@ for (const page of ['login', 'signup']) {
         useLocalizedForm: () => {}
       }
       const exports = {}
-      new Function('exports', 'require', ...Object.keys(globals), code)(exports, require, ...Object.values(globals))
+      const testRequire = name => name === 'vue' ? nuxtRequire(name) : require(name)
+      new Function('exports', 'require', ...Object.keys(globals), code)(exports, testRequire, ...Object.values(globals))
       const app = createSSRApp(exports.default)
       let snapshot
       app.component('UAuthForm', {

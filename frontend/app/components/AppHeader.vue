@@ -6,6 +6,10 @@ const { t } = useAppI18n()
 const { open: searchOpen } = useContentSearch()
 
 const open = ref(false)
+const canCreate = computed(() => session.user.value?.role === 'business')
+watch(() => route.fullPath, () => {
+  open.value = false
+})
 
 // Both modals portal to `body` with no z-index, so after a client-side layout
 // change the menu can end up painted over the search
@@ -15,7 +19,7 @@ watch(searchOpen, (value) => {
   }
 })
 
-const items = computed(() => [{ label: t('navigation.catalog'), to: '/catalog', active: route.path === '/catalog' }, {
+const items = computed(() => [{ label: t('navigation.catalog'), icon: 'i-lucide-layout-grid', to: '/catalog', active: route.path === '/catalog' || (route.path.startsWith('/tasks/') && route.path !== '/tasks/new') }, {
   label: t('navigation.workflow'), to: '/#workflow'
 }])
 </script>
@@ -37,11 +41,9 @@ const items = computed(() => [{ label: t('navigation.catalog'), to: '/catalog', 
       <LanguageSwitcher />
       <UColorModeButton />
 
-      <UContentSearchButton class="lg:hidden" />
-
       <UButton
-        icon="i-lucide-log-in"
-        :aria-label="t('navigation.loginLabel')"
+        :icon="session.token.value ? 'i-lucide-user-round' : 'i-lucide-log-in'"
+        :aria-label="session.token.value ? t('navigation.account') : t('navigation.loginLabel')"
         color="neutral"
         variant="ghost"
         :to="session.token.value ? '/account' : '/login'"
@@ -53,6 +55,14 @@ const items = computed(() => [{ label: t('navigation.catalog'), to: '/catalog', 
         color="neutral"
         variant="outline"
         :to="session.token.value ? '/account' : '/login'"
+        class="hidden lg:inline-flex"
+      />
+
+      <UButton
+        v-if="canCreate"
+        to="/tasks/new"
+        :label="t('navigation.createTask')"
+        icon="i-lucide-plus"
         class="hidden lg:inline-flex"
       />
 
@@ -74,7 +84,7 @@ const items = computed(() => [{ label: t('navigation.catalog'), to: '/catalog', 
       />
 
       <UButton
-        v-if="!session.token.value"
+        v-if="canCreate || !session.token.value"
         :label="t('navigation.createTask')"
         to="/tasks/new"
         block

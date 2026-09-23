@@ -22,5 +22,5 @@ export type Card = Record<CardField, string | null> & {
 }
 export interface CatalogEntry { task_id: string, task: Card, published_at: string }
 export interface CatalogPage { items: CatalogEntry[], total: number, limit: number, offset: number }
-export interface Proposal { id: string, team_id: string, user_id: string, idea: string, plan: string, prototype_url: string | null }
+export interface Proposal { id: string, task_id: string, team_id: string, user_id: string, idea: string, plan: string, prototype_url: string | null }
 export interface Decision { id: string, selected_proposal_ids: string[], comment: string | null }

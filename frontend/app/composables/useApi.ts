@@ -27,7 +27,7 @@ export function useApi() {
         baseURL: auth ? '/api/session' : config.public.apiBase,
         ...options,
         retry: 0,
-        timeout: path.endsWith('/questions') && options.method === 'POST' ? 90000 : 20000,
+        timeout: /\/(questions|rating-advice|analysis|title|similar|next-question)$/.test(path) && options.method === 'POST' ? 90000 : 20000,
         headers: auth ? { 'X-Requested-With': 'AI-Sana' } : token.value ? { Authorization: `Bearer ${token.value}` } : undefined
       }) as T
     } catch (cause) {
@@ -55,7 +55,12 @@ export function useApi() {
       for (const issue of data.detail) fields[issue.loc.slice(1).join('.')] = issue.msg
     }
     const detail = typeof data?.detail === 'string' ? data.detail : Object.values(fields).join('; ') || 'Не удалось выполнить запрос'
-    return Object.assign(new Error(detail), { detail, code: data?.code || (response.statusCode === 422 ? 'validation_error' : 'request_failed'), status: response.statusCode || 0, fields })
+    let fallback = 'request_failed'
+    if (!response.statusCode) fallback = 'network_error'
+    else if (response.statusCode === 422) fallback = 'validation_error'
+    else if (response.statusCode === 504) fallback = 'upstream_timeout'
+    else if (response.statusCode >= 500) fallback = 'upstream_unavailable'
+    return Object.assign(new Error(detail), { detail, code: data?.code || fallback, status: response.statusCode || 0, fields })
   }
 
   return { request, refresh, token, user, pendingRequests }

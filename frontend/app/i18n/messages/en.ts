@@ -1,4 +1,32 @@
 export default {
+  interface: {
+    skip: 'Skip to content',
+    openTask: 'View task details',
+    selected: 'Selected: {count} of {total}',
+    notFound: 'Page not found',
+    notFoundHint: 'The link may be outdated or the address may contain a typo. Find a task in the catalog or return home.',
+    errorTitle: 'Could not open this page',
+    errorHint: 'Try opening the page again or return to the catalog.',
+    retry: 'Try again'
+  },
+  ai: {
+    rating: 'Improve the rating with AI',
+    proposal: 'Analyze proposal with AI',
+    advisory: 'Analysis of saved data. Review AI conclusions; the decision remains yours.',
+    wait: 'AI is analyzing the data. This may take about a minute.',
+    title: 'Suggest a title',
+    titleHint: 'Leave blank to generate a title when assembling the card. You can edit it before publishing.',
+    similar: 'Check similar tasks',
+    similarHint: 'AI compares needs with the 50 highest-rated catalog tasks. Matches never block creation.',
+    noSimilar: 'No close matches among the checked tasks.',
+    dialogue: 'Step-by-step dialogue',
+    dialogueHint: 'Save an answer and AI will adapt the next question. You can switch to all questions.',
+    next: 'Refine the next question',
+    forYou: 'For your team',
+    skills: 'Team skills (e.g. Python, analytics)',
+    interests: 'Team interests (e.g. education, logistics)',
+    matchHint: 'Sorted by keyword matches, then completeness rating. All tasks remain available; teams are never assigned automatically.'
+  },
   creation: {
     assembling: 'Building your task card',
     eyebrow: 'From an idea to a real task',
@@ -219,6 +247,9 @@ export default {
     invalid: 'Check this field'
   },
   errors: {
+    session_check_unavailable: 'Could not verify your session. Retry when the connection is restored.',
+    gateway_unavailable: 'The server is temporarily unavailable. Please try again.',
+    auth_unavailable: 'The sign-in service is temporarily unavailable. Please try again.',
     generic: 'The request could not be completed. Please try again.',
     validation_error: 'Check the form fields.',
     invalid_credentials: 'Incorrect email or password.',
@@ -235,6 +266,14 @@ export default {
     upstream_unavailable: 'The service is temporarily unavailable.',
     bad_gateway: 'Could not get a response from the service.',
     rate_limit_exceeded: 'Too many requests. Please try again later.',
+    ai_not_configured: 'AI has not been connected yet. Contact the administrator. You can continue filling in the task manually.',
+    ai_configuration_error: 'AI access is misconfigured. Contact the administrator.',
+    ai_rate_limit: 'The AI request limit has been reached. Try later or continue manually.',
+    ai_timeout: 'AI did not respond in time. Retry or continue manually.',
+    ai_incomplete: 'AI returned an incomplete answer. Retry or continue manually.',
+    ai_refusal: 'AI could not process this text. Clarify the description or continue manually.',
+    ai_provider_error: 'The AI service rejected the request. Try later or contact the administrator.',
+    ai_token_limit: 'The AI response limit was exceeded. Contact the administrator.',
     ai_unavailable: 'AI is temporarily unavailable. Please try again.',
     ai_invalid_response: 'Could not prepare the questions. Please try again.'
   }

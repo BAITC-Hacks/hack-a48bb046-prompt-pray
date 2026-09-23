@@ -24,6 +24,9 @@ const color = computed(() => score.value >= 90 ? 'success' : score.value >= 70 ?
     variant="soft"
     :aria-label="t('rating.title')"
   >
+    <h2 class="text-sm font-semibold text-highlighted">
+      {{ t('rating.title') }}
+    </h2>
     <div class="flex items-center justify-between gap-4">
       <span class="text-3xl font-semibold tabular-nums">{{ n(score) }} <span class="text-base font-normal text-muted">/ {{ n(100) }}</span></span>
       <UBadge

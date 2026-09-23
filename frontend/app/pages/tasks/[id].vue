@@ -128,10 +128,15 @@ await action(async () => {
 </script>
 
 <template>
-  <UContainer class="max-w-4xl py-12 space-y-6">
+  <UContainer
+    data-app-page
+    class="space-y-8"
+  >
     <UButton
       to="/catalog"
       :label="t('task.back')"
+      icon="i-lucide-arrow-left"
+      color="neutral"
       variant="link"
     />
     <UAlert
@@ -187,68 +192,117 @@ await action(async () => {
       />
     </UCard>
     <template v-if="card">
-      <UPageHeader :title="card.title" />
+      <AppPageHeading
+        :title="card.title"
+        :eyebrow="t('task.title')"
+        icon="i-lucide-file-text"
+      >
+        <TasksTaskRating
+          :rating="card.rating"
+          compact
+        />
+      </AppPageHeading>
       <TasksTaskWorkflow
         v-if="owner && !card.confirmed_at"
         :step="3"
       />
-      <TasksTaskRating :rating="card.rating" />
-      <UForm
-        v-if="owner"
-        ref="cardForm"
-        :state="form"
-        :schema="z.object({ title: z.string({ error: t('validation.required') }).trim().min(1, t('validation.title')).max(200, t('validation.max', { max: 200 })) })"
-        class="space-y-4"
-        @submit="action(async () => { await save(); notice = 'task.cardSaved' })"
-      >
-        <TasksTaskCardFields
-          v-model="form"
-          :errors="fieldErrors(error)"
-        />
-        <div class="flex flex-wrap gap-3">
-          <UButton
-            type="submit"
-            :label="t('task.saveRating')"
-            :loading="pending"
-            :disabled="conflict"
+      <div class="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <aside class="space-y-4 lg:sticky lg:top-24 lg:col-start-2 lg:row-start-1">
+          <TasksTaskRating :rating="card.rating" />
+          <nav
+            :aria-label="t('task.title')"
+            class="hidden rounded-2xl border border-default bg-default p-3 lg:block"
+          >
+            <a
+              v-for="field in cardFields"
+              :key="field.key"
+              :href="`#task-${field.key}`"
+              class="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm text-muted transition-colors hover:bg-muted hover:text-highlighted focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              {{ t(`fields.${field.key}`) }}
+              <UIcon
+                name="i-lucide-chevron-right"
+                class="size-3.5 shrink-0"
+                aria-hidden="true"
+              />
+            </a>
+          </nav>
+          <TasksTaskAiAdvice
+            v-if="owner"
+            :key="card.version"
+            :endpoint="`${path}/rating-advice`"
+            :label="t('ai.rating')"
+          />
+          <p class="px-1 text-xs leading-6 text-muted">
+            {{ t('catalog.ratingHint') }}
+          </p>
+        </aside>
+        <div class="min-w-0 space-y-8 lg:col-start-1 lg:row-start-1">
+          <UForm
+            v-if="owner"
+            ref="cardForm"
+            :state="form"
+            :schema="z.object({ title: z.string({ error: t('validation.required') }).trim().min(1, t('validation.title')).max(200, t('validation.max', { max: 200 })) })"
+            data-app-panel
+            class="space-y-6"
+            @submit="action(async () => { await save(); notice = 'task.cardSaved' })"
+          >
+            <TasksTaskCardFields
+              v-model="form"
+              :errors="fieldErrors(error)"
+            />
+            <div class="flex flex-wrap gap-3 border-t border-default pt-6">
+              <UButton
+                type="submit"
+                :label="t('task.saveRating')"
+                icon="i-lucide-save"
+                size="lg"
+                color="neutral"
+                variant="outline"
+                :loading="pending"
+                :disabled="conflict"
+              />
+              <UButton
+                :label="t('task.publish')"
+                icon="i-lucide-arrow-up-right"
+                size="lg"
+                :disabled="pending || conflict || !form.title?.trim()"
+                @click="publish"
+              />
+            </div>
+            <p class="text-xs leading-6 text-muted">
+              {{ t('task.consent') }}
+            </p>
+          </UForm>
+          <TasksTaskDetails
+            v-else
+            :card="card"
+          />
+          <TasksTaskProposalForm
+            v-if="api.user.value?.role === 'student'"
+            v-model="proposal"
+            :team-name="api.user.value?.username"
+            :pending="pending"
+            :errors="fieldErrors(error)"
+            @submit="sendProposal"
           />
           <UButton
-            :label="t('task.publish')"
-            variant="outline"
-            :disabled="pending || conflict || !form.title?.trim()"
-            @click="publish"
+            v-if="!api.user.value"
+            :to="{ path: '/login', query: { redirect: route.fullPath } }"
+            :label="t('task.loginProposal')"
+          />
+          <TasksTaskProposalSelection
+            v-if="owner"
+            v-model:selected="selected"
+            v-model:comment="comment"
+            :proposals="proposals"
+            :task-id="card.id"
+            :pending="pending"
+            :error="fieldErrors(error).comment"
+            @decide="decide"
           />
         </div>
-        <p class="text-muted">
-          {{ t('task.consent') }}
-        </p>
-      </UForm>
-      <TasksTaskDetails
-        v-else
-        :card="card"
-      />
-      <TasksTaskProposalForm
-        v-if="api.user.value?.role === 'student'"
-        v-model="proposal"
-        :team-name="api.user.value?.username"
-        :pending="pending"
-        :errors="fieldErrors(error)"
-        @submit="sendProposal"
-      />
-      <UButton
-        v-if="!api.user.value"
-        :to="{ path: '/login', query: { redirect: route.fullPath } }"
-        :label="t('task.loginProposal')"
-      />
-      <TasksTaskProposalSelection
-        v-if="owner"
-        v-model:selected="selected"
-        v-model:comment="comment"
-        :proposals="proposals"
-        :pending="pending"
-        :error="fieldErrors(error).comment"
-        @decide="decide"
-      />
+      </div>
     </template>
   </UContainer>
 </template>

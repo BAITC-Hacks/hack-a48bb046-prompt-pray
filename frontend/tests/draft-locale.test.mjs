@@ -24,9 +24,33 @@ async function page(request, query = {}, uiLocale = ref('ru')) {
   }
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
   return new AsyncFunction('exports', 'require', ...Object.keys(globals),
-    `${compiled}\nreturn { state, draft, answers, questions, createDraft, loadQuestions, error }`
+    `${compiled}\nreturn { state, draft, answers, questions, createDraft, loadQuestions, assemble, error }`
   )({}, require, ...Object.values(globals))
 }
+
+test('editing a reopened draft saves before assembly and preserves answers', async () => {
+  const calls = []
+  const form = await page(async (path, options) => {
+    if (path.endsWith('/similar')) return []
+    if (!options) return path.endsWith('/questions')
+      ? [{ id: 'q', question: 'Question?', answer: 'Saved answer' }]
+      : { id: 'saved', description: 'Original', card_id: null }
+    calls.push([path, options])
+    if (path.endsWith('/card')) return { id: 'card' }
+    if (path === '/catalog/drafts/saved') return { id: 'saved', ...options.body, card_id: null }
+    return { answer: options.body.answer }
+  }, { draft: 'saved' })
+  form.state.description = 'Edited description'
+  form.answers.q = 'Unsaved answer'
+  await form.createDraft()
+  assert.deepEqual(calls, [['/catalog/drafts/saved', { method: 'PATCH', body: { description: 'Edited description' } }]])
+  assert.equal(form.answers.q, 'Unsaved answer')
+  form.state.description = 'Edited again'
+  form.state.title = 'Edited task'
+  await form.assemble()
+  assert.equal(form.error.value, null)
+  assert.deepEqual(calls.slice(1).map(([path]) => path), ['/catalog/drafts/saved', '/catalog/questions/q', '/catalog/drafts/saved/card'])
+})
 
 for (const locale of ['ru', 'kk', 'en']) {
   test(`draft creation omits language with ${locale} UI and retries the saved draft`, async () => {

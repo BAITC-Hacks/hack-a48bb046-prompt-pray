@@ -1,4 +1,4 @@
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.orm import selectinload
 
 from ..models import (
@@ -51,15 +51,22 @@ class CatalogRepository:
     async def card_for_draft(self, key):
         return await self.session.scalar(select(TaskCard).where(TaskCard.draft_id == key))
 
-    async def catalog(self, limit, offset):
+    async def catalog(self, limit, offset, terms=None):
         total = await self.session.scalar(select(func.count()).select_from(CatalogEntry))
         rating = sum(getattr(RatingBreakdown, name) for name in (
             'context', 'data', 'expected_result', 'success_criteria',
             'constraints', 'users', 'business_contact',
         ))
+        order = []
+        if terms:
+            # Bound parameters and autoescape keep profile text out of SQL syntax.
+            text = func.lower(func.coalesce(TaskCard.title, '') + ' ' + func.coalesce(TaskCard.context, '')
+                              + ' ' + func.coalesce(TaskCard.expected_result, '') + ' ' + func.coalesce(TaskCard.constraints, ''))
+            relevance = sum(case((text.contains(term, autoescape=True), 1), else_=0) for term in terms)
+            order.append(relevance.desc())
         items = (await self.session.scalars(select(CatalogEntry).join(TaskCard).join(RatingBreakdown)
             .options(selectinload(CatalogEntry.task).selectinload(TaskCard.rating))
-            .order_by(rating.desc(), CatalogEntry.published_at.desc(), CatalogEntry.task_id)
+            .order_by(*order, rating.desc(), CatalogEntry.published_at.desc(), CatalogEntry.task_id)
             .limit(limit).offset(offset))).all()
         return items, total
 
