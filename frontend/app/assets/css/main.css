@@ -25,3 +25,7 @@
   --ui-bg-elevated: var(--ui-color-neutral-900);
   --ui-bg-accented: var(--ui-color-neutral-800);
 }
+
+:root { --ui-radius: 0.625rem; }
+:root:not(.dark) { --ui-bg: #fafbf9; }
+body { -webkit-font-smoothing: antialiased; }

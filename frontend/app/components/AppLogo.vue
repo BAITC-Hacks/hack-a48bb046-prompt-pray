@@ -1,7 +1,11 @@
+<script setup lang="ts">
+const { t } = useAppI18n()
+</script>
+
 <template>
   <NuxtLink
     to="/"
-    aria-label="AI Sana — на главную"
+    :aria-label="`AI Sana — ${t('navigation.home')}`"
     class="inline-flex items-center gap-2.5 font-bold tracking-tight text-lg"
   >
     <span class="grid size-8 place-items-center rounded-xl bg-primary text-white shadow-sm">

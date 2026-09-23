@@ -4,13 +4,21 @@ import type { ApiError, User } from '~/types/api'
 import { cardFields } from '~/types/catalog'
 import type { Card, CatalogEntry, Proposal, Decision } from '~/types/catalog'
 
+const { t, n } = useAppI18n()
+
 const api = useApi()
+const { errorMessage, fieldErrors } = useApiMessages()
 const route = useRoute()
 const path = `/catalog/tasks/${route.params.id}`
 const card = ref<Card | null>(null)
 const error = ref<ApiError | null>(null)
 const pending = ref(false)
 const notice = ref('')
+const decisionCount = ref(0)
+const noticeMessage = computed(() => notice.value ? t(notice.value, { count: n(decisionCount.value) }, decisionCount.value) : '')
+const cardForm = useTemplateRef('cardForm')
+useLocalizedForm(() => cardForm.value)
+useSeoMeta({ title: () => card.value?.title || t('task.title') })
 const form = ref<Record<string, string>>({ title: '' })
 const conflict = ref(false)
 const localCopy = ref<Record<string, string> | null>(null)
@@ -60,12 +68,12 @@ async function reloadLatest() {
     card.value = latest
     fillForm()
     conflict.value = false
-    notice.value = 'Загружена актуальная карточка. Ваш предыдущий текст сохранён ниже для сравнения.'
+    notice.value = 'task.latestLoaded'
   })
 }
 function restoreLocalText() {
   if (localCopy.value) form.value = { ...localCopy.value }
-  notice.value = 'Ваш текст возвращён в форму. Проверьте отличия перед сохранением.'
+  notice.value = 'task.textRestored'
 }
 async function publish() {
   await action(async () => {
@@ -77,13 +85,13 @@ async function publish() {
       method: 'POST', body: { expected_version: card.value.version }
     })
     card.value = entry.task
-    notice.value = 'Карточка подтверждена и опубликована в каталоге'
+    notice.value = 'task.published'
   })
 }
 async function sendProposal() {
   await action(async () => {
     await api.request(`${path}/proposals`, { method: 'POST', body: { ...proposal.value, prototype_url: proposal.value.prototype_url || null } })
-    notice.value = 'Отклик отправлен. Решение принимает бизнес.'
+    notice.value = 'task.proposalSent'
     proposal.value.idea = ''
     proposal.value.plan = ''
     proposal.value.prototype_url = ''
@@ -92,7 +100,8 @@ async function sendProposal() {
 async function decide() {
   await action(async () => {
     await api.request<Decision>(`${path}/decisions`, { method: 'POST', body: { selected_proposal_ids: selected.value, comment: comment.value.trim() || null } })
-    notice.value = selected.value.length ? `Решение сохранено: выбрано команд — ${selected.value.length}` : 'Решение сохранено: не выбрана ни одна команда'
+    decisionCount.value = selected.value.length
+    notice.value = decisionCount.value ? 'task.decisionSaved' : 'task.decisionNone'
   })
 }
 await action(async () => {
@@ -122,29 +131,28 @@ await action(async () => {
   <UContainer class="max-w-4xl py-12 space-y-6">
     <UButton
       to="/catalog"
-      label="В каталог"
+      :label="t('task.back')"
       variant="link"
     />
     <UAlert
       v-if="error"
       color="error"
-      :title="error.detail"
-      :description="error.code"
+      :title="errorMessage(error)"
     />
     <UAlert
       v-if="notice"
       color="success"
-      :title="notice"
+      :title="noticeMessage"
     />
     <UAlert
       v-if="conflict"
       color="warning"
-      title="Карточка изменена в другой сессии"
-      description="Ваш ввод сохранён. Загрузите актуальную карточку и сравните изменения перед повторным сохранением."
+      :title="t('task.versionConflict')"
+      :description="t('task.versionConflictHint')"
     >
       <template #actions>
         <UButton
-          label="Загрузить актуальную карточку"
+          :label="t('task.loadLatest')"
           :loading="pending"
           @click="reloadLatest"
         />
@@ -152,7 +160,7 @@ await action(async () => {
     </UAlert>
     <UCard v-if="localCopy">
       <h2 class="font-semibold mb-4">
-        Ваш сохранённый ввод
+        {{ t('task.localCopy') }}
       </h2>
       <p class="whitespace-pre-wrap break-words mb-4">
         {{ localCopy.title }}
@@ -163,17 +171,17 @@ await action(async () => {
           :key="field.key"
         >
           <dt class="font-medium">
-            {{ field.label }}
+            {{ t(`fields.${field.key}`) }}
           </dt>
           <dd class="whitespace-pre-wrap break-words">
-            {{ localCopy[field.key] || 'Не заполнено' }}
+            {{ localCopy[field.key] || t('task.notSpecified') }}
           </dd>
         </template>
       </dl>
       <UButton
         v-if="!conflict"
         class="mt-4"
-        label="Вернуть мой текст в форму"
+        :label="t('task.restoreText')"
         :disabled="pending"
         @click="restoreLocalText"
       />
@@ -187,54 +195,50 @@ await action(async () => {
       <TasksTaskRating :rating="card.rating" />
       <UForm
         v-if="owner"
+        ref="cardForm"
         :state="form"
-        :schema="z.object({ title: z.string().trim().min(1, 'Введите название').max(200) })"
+        :schema="z.object({ title: z.string({ error: t('validation.required') }).trim().min(1, t('validation.title')).max(200, t('validation.max', { max: 200 })) })"
         class="space-y-4"
-        @submit="action(async () => { await save(); notice = 'Карточка сохранена, рейтинг пересчитан' })"
+        @submit="action(async () => { await save(); notice = 'task.cardSaved' })"
       >
         <TasksTaskCardFields
           v-model="form"
-          :errors="error?.fields"
+          :errors="fieldErrors(error)"
         />
         <div class="flex flex-wrap gap-3">
           <UButton
             type="submit"
-            label="Сохранить и пересчитать рейтинг"
+            :label="t('task.saveRating')"
             :loading="pending"
             :disabled="conflict"
           />
           <UButton
-            label="Подтверждаю — опубликовать"
+            :label="t('task.publish')"
             variant="outline"
             :disabled="pending || conflict || !form.title?.trim()"
             @click="publish"
           />
         </div>
         <p class="text-muted">
-          Подтверждая, вы разрешаете публикацию описания, материалов и контактов в открытом каталоге.
+          {{ t('task.consent') }}
         </p>
       </UForm>
-      <template v-else>
-        <UPageCard
-          v-for="field in cardFields"
-          :key="field.key"
-          :title="field.label"
-          :description="card[field.key] || 'Пока не указано'"
-          :ui="{ description: 'whitespace-pre-line break-words' }"
-        />
-      </template>
+      <TasksTaskDetails
+        v-else
+        :card="card"
+      />
       <TasksTaskProposalForm
         v-if="api.user.value?.role === 'student'"
         v-model="proposal"
         :team-name="api.user.value?.username"
         :pending="pending"
-        :errors="error?.fields"
+        :errors="fieldErrors(error)"
         @submit="sendProposal"
       />
       <UButton
         v-if="!api.user.value"
         :to="{ path: '/login', query: { redirect: route.fullPath } }"
-        label="Войти, чтобы откликнуться"
+        :label="t('task.loginProposal')"
       />
       <TasksTaskProposalSelection
         v-if="owner"
@@ -242,7 +246,7 @@ await action(async () => {
         v-model:comment="comment"
         :proposals="proposals"
         :pending="pending"
-        :error="error?.fields.comment"
+        :error="fieldErrors(error).comment"
         @decide="decide"
       />
     </template>

@@ -3,24 +3,29 @@ import * as z from 'zod'
 import type { ApiError } from '~/types/api'
 import type { Draft, DraftLocale, Question, Card } from '~/types/catalog'
 
+const { t, locale } = useAppI18n()
+
 definePageMeta({ middleware: 'auth' })
+useSeoMeta({ title: () => t('task.newTitle'), description: () => t('task.newDescription') })
 const api = useApi()
+const { errorMessage, fieldErrors } = useApiMessages()
+const canCreateTask = computed(() => api.user.value?.role === 'business')
 const app = useNuxtApp()
 const route = useRoute()
-const state = reactive({ description: '', title: '', locale: 'ru' as DraftLocale })
-const languages = [
-  { label: 'Русский', value: 'ru' },
-  { label: 'Қазақша', value: 'kk' },
-  { label: 'English', value: 'en' }
-]
-const schema = z.object({ description: z.string().trim().min(1, 'Опишите вашу потребность').max(32000) })
+const state = reactive({ description: '', title: '', locale: locale.value as DraftLocale })
+const languages = [{ label: 'Русский', value: 'ru' }, { label: 'Қазақша', value: 'kk' }, { label: 'English', value: 'en' }]
+const schema = computed(() => z.object({ description: z.string({ error: t('validation.required') }).trim().min(1, t('validation.description')).max(32000, t('validation.max', { max: 32000 })) }))
+const draftForm = useTemplateRef('draftForm')
+const titleForm = useTemplateRef('titleForm')
+useLocalizedForm(() => draftForm.value)
+useLocalizedForm(() => titleForm.value)
 const draft = ref<Draft | null>(null)
 const questions = ref<Question[]>([])
 const pending = ref(false)
 const generatingQuestions = ref(false)
 const error = ref<ApiError | null>(null)
 const answers = reactive<Record<string, string>>({})
-const answerErrors = reactive<Record<string, string>>({})
+const answerErrors = reactive<Record<string, string | ApiError>>({})
 
 async function action(work: () => Promise<void>) {
   if (pending.value) return
@@ -44,6 +49,7 @@ async function loadQuestions() {
   }
 }
 async function createDraft() {
+  if (!canCreateTask.value) return
   await action(async () => {
     if (!draft.value) {
       draft.value = await api.request<Draft>('/catalog/drafts', {
@@ -58,14 +64,14 @@ async function saveAnswer(question: Question) {
   await action(async () => {
     answerErrors[question.id] = ''
     if (!answers[question.id]?.trim()) {
-      answerErrors[question.id] = 'Введите ответ'
+      answerErrors[question.id] = 'validation.answer'
       return
     }
     try {
       const saved = await api.request<Question>(`/catalog/questions/${question.id}`, { method: 'PATCH', body: { answer: answers[question.id] } })
       question.answer = saved.answer
     } catch (cause) {
-      answerErrors[question.id] = (cause as ApiError).fields.answer || (cause as ApiError).detail
+      answerErrors[question.id] = cause as ApiError
       throw cause
     }
   })
@@ -99,67 +105,73 @@ if (typeof route.query.draft === 'string') {
 <template>
   <UContainer class="max-w-3xl py-12 space-y-6">
     <UPageHeader
-      title="Новая бизнес-задача"
-      description="Опишите потребность. Ответы на уточняющие вопросы помогут подготовить карточку."
+      :title="t('task.newTitle')"
+      :description="t('task.newDescription')"
     />
     <TasksTaskWorkflow :step="questions.length ? 2 : 1" />
     <UAlert
-      v-if="api.user.value?.role !== 'business'"
-      title="Создание задач доступно бизнесу"
+      v-if="error"
+      color="error"
+      :title="errorMessage(error)"
     />
-    <template v-else>
-      <UAlert
-        v-if="generatingQuestions"
-        title="Готовим уточняющие вопросы"
-        description="Это может занять около минуты. Черновик уже сохранён — к нему можно вернуться из кабинета."
-        icon="i-lucide-loader-circle"
-        role="status"
-      />
-      <UAlert
-        v-if="error"
-        color="error"
-        :title="error.detail"
-        :description="error.code"
-      />
-      <UForm
-        :schema="schema"
-        :state="state"
-        class="space-y-4"
-        @submit="createDraft"
+    <UAlert
+      v-if="generatingQuestions"
+      :title="t('task.generating')"
+      :description="t('task.generatingHint')"
+      icon="i-lucide-loader-circle"
+      role="status"
+    />
+    <UForm
+      ref="draftForm"
+      :schema="schema"
+      :state="state"
+      class="space-y-4 rounded-2xl border border-default bg-default p-6"
+      @submit="createDraft"
+    >
+      <UFormField
+        :label="t('task.questionLanguage')"
+        name="locale"
+        :description="t('task.languageHint')"
+        :error="fieldErrors(error).locale"
       >
-        <UFormField
-          label="Язык уточняющих вопросов"
-          name="locale"
-          description="Сохраняется вместе с черновиком. Описание и ответы не переводятся."
-          :error="error?.fields.locale"
-        >
-          <USelect
-            v-model="state.locale"
-            :items="languages"
-            :disabled="!!draft || pending"
-            class="w-full"
-          />
-        </UFormField>
-        <UFormField
-          label="Описание потребности"
-          name="description"
-          :error="error?.fields.description"
-        >
-          <UTextarea
-            v-model="state.description"
-            :disabled="!!draft || pending"
-            placeholder="Например: хотим сократить время обработки заявок. Сейчас менеджеры вручную переносят их из почты в таблицу."
-            :rows="6"
-            class="w-full"
-          />
-        </UFormField>
-        <UButton
-          v-if="!questions.length"
-          type="submit"
-          :loading="pending"
-          :label="draft ? 'Повторить уточнение' : 'Сохранить и получить вопросы'"
+        <USelect
+          v-model="state.locale"
+          :items="languages"
+          :disabled="!!draft || pending"
+          class="w-full"
         />
-      </UForm>
+      </UFormField>
+      <UFormField
+        :label="t('task.problem')"
+        name="description"
+        :error="fieldErrors(error).description"
+      >
+        <UTextarea
+          v-model="state.description"
+          :disabled="!!draft || pending"
+          :placeholder="t('task.placeholder')"
+          :rows="6"
+          :maxlength="32000"
+          :ui="{ base: 'min-h-40 p-4 leading-relaxed' }"
+          class="w-full"
+        />
+      </UFormField>
+      <UAlert
+        v-if="!canCreateTask"
+        :title="t('task.businessAccount')"
+        :description="t('task.studentHint')"
+        color="neutral"
+        variant="soft"
+      />
+      <UButton
+        v-if="!questions.length"
+        type="submit"
+        :loading="pending"
+        :disabled="!canCreateTask"
+        :label="draft ? t('task.retry') : t('task.getQuestions')"
+      />
+    </UForm>
+    <template v-if="canCreateTask">
       <TasksTaskQuestion
         v-for="(question, index) in questions"
         :key="question.id"
@@ -167,20 +179,21 @@ if (typeof route.query.draft === 'string') {
         :question="question"
         :index="index"
         :pending="pending"
-        :error="answerErrors[question.id]"
+        :error="answerErrors[question.id] ? typeof answerErrors[question.id] === 'string' ? t(String(answerErrors[question.id])) : errorMessage(answerErrors[question.id]) : undefined"
         @save="saveAnswer(question)"
       />
       <UForm
         v-if="questions.length"
-        :schema="z.object({ title: z.string().trim().min(1, 'Введите название').max(200) })"
+        ref="titleForm"
+        :schema="z.object({ title: z.string({ error: t('validation.required') }).trim().min(1, t('validation.title')).max(200, t('validation.max', { max: 200 })) })"
         :state="state"
         class="space-y-4"
         @submit="assemble"
       >
         <UFormField
           name="title"
-          label="Название задачи"
-          :error="error?.fields.title"
+          :label="t('task.title')"
+          :error="fieldErrors(error).title"
         >
           <UInput
             v-model="state.title"
@@ -188,11 +201,11 @@ if (typeof route.query.draft === 'string') {
           />
         </UFormField>
         <p class="text-muted">
-          Неизвестные данные можно оставить пустыми. Проверьте карточку перед публикацией.
+          {{ t('task.unknownHint') }}
         </p>
         <UButton
           type="submit"
-          label="Собрать карточку"
+          :label="t('task.assemble')"
           :loading="pending"
         />
       </UForm>

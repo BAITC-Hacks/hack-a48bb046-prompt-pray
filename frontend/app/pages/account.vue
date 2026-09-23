@@ -2,9 +2,12 @@
 import type { ApiError } from '~/types/api'
 import type { Draft } from '~/types/catalog'
 
+const { t } = useAppI18n()
+
 definePageMeta({ middleware: 'auth' })
-useSeoMeta({ title: 'Личный кабинет — AI Sana' })
+useSeoMeta({ title: () => t('account.title') })
 const api = useApi()
+const { errorMessage } = useApiMessages()
 const isBusiness = computed(() => api.user.value?.role === 'business')
 const initials = computed(() => (api.user.value?.username || 'U').slice(0, 2).toUpperCase())
 const drafts = ref<Draft[]>([])
@@ -72,7 +75,7 @@ async function logout() {
             Моё пространство
           </p>
           <h1 class="text-3xl font-semibold tracking-tight text-highlighted lg:text-4xl">
-            Личный кабинет
+            {{ t('account.title') }}
           </h1>
           <p class="mt-3 text-muted">
             {{ isBusiness ? 'От идеи до команды — ваши задачи собраны здесь.' : 'Реальные задачи бизнеса. Возможности для вашей команды.' }}
@@ -81,7 +84,7 @@ async function logout() {
         <UButton
           :to="isBusiness ? '/tasks/new' : '/catalog'"
           :icon="isBusiness ? 'i-lucide-plus' : 'i-lucide-search'"
-          :label="isBusiness ? 'Создать задачу' : 'Найти задачу'"
+          :label="isBusiness ? t('navigation.createTask') : 'Найти задачу'"
           size="lg"
           class="rounded-xl"
         />
@@ -109,12 +112,12 @@ async function logout() {
                 variant="soft"
                 class="mt-4"
               >
-                {{ isBusiness ? 'Бизнес' : 'Студент / команда' }}
+                {{ isBusiness ? t('auth.business') : t('auth.student') }}
               </UBadge>
             </div>
             <nav
               class="space-y-1 border-t border-default p-3"
-              aria-label="Личный кабинет"
+              aria-:label="t('account.title')"
             >
               <NuxtLink
                 to="/account"
@@ -136,7 +139,7 @@ async function logout() {
                 <UIcon
                   name="i-lucide-compass"
                   class="size-4"
-                />Каталог задач<UIcon
+                />{{ t('navigation.catalog') }}<UIcon
                   name="i-lucide-arrow-up-right"
                   class="ml-auto size-4"
                 />
@@ -155,7 +158,7 @@ async function logout() {
           <UAlert
             v-if="logoutError"
             color="error"
-            :title="logoutError.detail"
+            :title="errorMessage(logoutError)"
           />
         </aside>
         <div class="min-w-0 space-y-6">
@@ -231,7 +234,7 @@ async function logout() {
                     id="tasks-title"
                     class="text-lg font-semibold text-highlighted"
                   >
-                    Мои задачи
+                    {{ t('account.tasks') }}
                   </h2><p class="mt-1 text-sm text-muted">
                     Продолжайте работу и просматривайте отклики.
                   </p>
@@ -372,7 +375,7 @@ async function logout() {
                         size="sm"
                       >{{ draft.card_id ? 'Карточка создана' : 'Черновик' }}</UBadge>
                       <h3 class="mt-2 line-clamp-2 text-sm leading-6 font-medium break-words text-highlighted">{{ draft.description || 'Задача без описания' }}</h3>
-                      <p class="mt-2 text-xs text-muted">{{ draft.card_id ? 'Открыть карточку и отклики' : 'Продолжить заполнение' }}</p>
+                      <p class="mt-2 text-xs text-muted">{{ draft.card_id ? t('account.openCard') : t('account.continue') }}</p>
                     </div>
                     <UIcon
                       name="i-lucide-arrow-right"

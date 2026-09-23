@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { ApiError } from '~/types/api'
 import type { CatalogPage } from '~/types/catalog'
 
-useSeoMeta({ title: 'Каталог бизнес-задач — AI Sana' })
+const { t, n } = useAppI18n()
+
+useSeoMeta({ title: () => t('catalog.meta'), description: () => t('catalog.description') })
 const api = useApi()
+const { errorMessage } = useApiMessages()
 const page = ref(1)
 const limit = 12
 const { data: result, error, status, refresh } = useLazyAsyncData(
@@ -12,54 +14,50 @@ const { data: result, error, status, refresh } = useLazyAsyncData(
   { watch: [page], server: false }
 )
 const pending = computed(() => status.value === 'pending')
-const errorMessage = computed(() => (error.value as unknown as ApiError | null)?.detail || 'Не удалось загрузить задачи. Попробуйте ещё раз.')
 </script>
 
 <template>
-  <UContainer class="space-y-8 py-12">
+  <UContainer class="space-y-8 py-12 sm:py-16">
     <UPageHeader
-      title="Найдите задачу для своей команды"
-      description="Реальные потребности бизнеса, с которых начинается ваш следующий проект."
+      :title="t('catalog.title')"
+      :description="t('catalog.description')"
     >
       <template #headline>
-        <span class="text-sm font-medium text-primary">Каталог бизнес-задач</span>
+        <span class="text-sm font-medium text-primary">{{ t('catalog.headline') }}</span>
       </template>
       <template #links>
         <UButton
           to="/tasks/new"
-          label="Создать задачу"
+          :label="t('navigation.createTask')"
           icon="i-lucide-plus"
           size="lg"
         />
       </template>
     </UPageHeader>
 
-    <div class="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-default bg-muted/40 p-4">
+    <div class="flex flex-wrap items-center justify-between gap-4 border-b border-default pb-4">
       <div class="flex items-center gap-2 text-sm font-medium">
         <UIcon
           name="i-lucide-arrow-down-wide-narrow"
-          class="size-5 text-primary"
+          class="size-4 text-muted"
           aria-hidden="true"
         />
-        Сначала самые подготовленные
+        {{ t('catalog.sort') }}
       </div>
       <span
         v-if="result && !pending && !error"
         class="text-sm text-muted"
         role="status"
-      >Всего задач: {{ result.total }}</span>
+      >{{ t('catalog.count', { count: n(result.total) }, result.total) }}</span>
     </div>
-    <p class="text-sm text-muted">
-      Рейтинг отражает полноту описания. Вы можете откликнуться на любую задачу — команду выбирает бизнес.
-    </p>
 
     <div
       v-if="pending"
       role="status"
-      aria-label="Загрузка задач"
+      :aria-label="t('catalog.loading')"
       class="space-y-4"
     >
-      <span class="sr-only">Загрузка задач…</span>
+      <span class="sr-only">{{ t('catalog.loading') }}</span>
       <UPageGrid aria-hidden="true">
         <UCard
           v-for="item in 6"
@@ -76,24 +74,24 @@ const errorMessage = computed(() => (error.value as unknown as ApiError | null)?
     </div>
     <AppEmptyState
       v-else-if="error"
-      title="Каталог временно недоступен"
-      :description="errorMessage"
+      :title="t('catalog.unavailable')"
+      :description="errorMessage(error)"
       icon="i-lucide-cloud-off"
     >
       <UButton
-        label="Повторить загрузку"
+        :label="t('catalog.retry')"
         icon="i-lucide-refresh-cw"
         @click="refresh()"
       />
     </AppEmptyState>
     <AppEmptyState
       v-else-if="!result?.total"
-      title="Первая задача может быть вашей"
-      description="Опишите потребность бизнеса. Мы поможем уточнить детали и подготовить карточку для команд."
+      :title="t('catalog.emptyTitle')"
+      :description="t('catalog.emptyDescription')"
     >
       <UButton
         to="/tasks/new"
-        label="Создать задачу"
+        :label="t('navigation.createTask')"
         icon="i-lucide-plus"
       />
     </AppEmptyState>
@@ -104,6 +102,9 @@ const errorMessage = computed(() => (error.value as unknown as ApiError | null)?
         :entry="entry"
       />
     </UPageGrid>
+    <p class="text-xs leading-6 text-muted">
+      {{ t('catalog.ratingHint') }}
+    </p>
     <div
       v-if="result && result.total > limit"
       class="flex justify-center border-t border-default pt-6"

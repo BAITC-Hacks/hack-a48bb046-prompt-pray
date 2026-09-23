@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const session = useApi()
+const { t } = useAppI18n()
 
 const { open: searchOpen } = useContentSearch()
 
@@ -14,22 +15,17 @@ watch(searchOpen, (value) => {
   }
 })
 
-const items = computed(() => [{ label: 'Каталог задач', to: '/catalog', active: route.path === '/catalog' }, {
-  label: 'Как это работает', to: '/#workflow'
+const items = computed(() => [{ label: t('navigation.catalog'), to: '/catalog', active: route.path === '/catalog' }, {
+  label: t('navigation.workflow'), to: '/#workflow'
 }])
 </script>
 
 <template>
   <UHeader v-model:open="open">
     <template #left>
-      <NuxtLink
-        to="/"
-        class="focus-visible:outline-3 outline-primary/25 rounded-md p-1 -ms-1"
-      >
-        <AppLogo class="w-auto h-6 shrink-0" />
-      </NuxtLink>
+      <AppLogo class="w-auto h-6 shrink-0 focus-visible:outline-3 outline-primary/25 rounded-md p-1 -ms-1" />
 
-      <span class="hidden sm:inline-flex text-xs text-muted border border-default rounded-full px-2.5 py-1">Пилот AI Sana</span>
+      <span class="hidden sm:inline-flex text-xs text-muted border border-default rounded-full px-2.5 py-1">{{ t('navigation.pilot') }}</span>
     </template>
 
     <UNavigationMenu
@@ -38,13 +34,14 @@ const items = computed(() => [{ label: 'Каталог задач', to: '/catalo
     />
 
     <template #right>
+      <LanguageSwitcher />
       <UColorModeButton />
 
       <UContentSearchButton class="lg:hidden" />
 
       <UButton
         icon="i-lucide-log-in"
-        aria-label="Вход в аккаунт"
+        :aria-label="t('navigation.loginLabel')"
         color="neutral"
         variant="ghost"
         :to="session.token.value ? '/account' : '/login'"
@@ -52,7 +49,7 @@ const items = computed(() => [{ label: 'Каталог задач', to: '/catalo
       />
 
       <UButton
-        :label="session.token.value ? 'Личный кабинет' : 'Войти'"
+        :label="session.token.value ? t('navigation.account') : t('navigation.login')"
         color="neutral"
         variant="outline"
         :to="session.token.value ? '/account' : '/login'"
@@ -61,7 +58,7 @@ const items = computed(() => [{ label: 'Каталог задач', to: '/catalo
 
       <UButton
         v-if="!session.token.value"
-        label="Регистрация"
+        :label="t('navigation.signup')"
         color="neutral"
         trailing-icon="i-lucide-arrow-right"
         class="hidden lg:inline-flex"
@@ -78,7 +75,7 @@ const items = computed(() => [{ label: 'Каталог задач', to: '/catalo
 
       <UButton
         v-if="!session.token.value"
-        label="Создать задачу"
+        :label="t('navigation.createTask')"
         to="/tasks/new"
         block
         class="mt-5"
@@ -86,7 +83,7 @@ const items = computed(() => [{ label: 'Каталог задач', to: '/catalo
       <USeparator class="my-6" />
 
       <UButton
-        :label="session.token.value ? 'Личный кабинет' : 'Войти'"
+        :label="session.token.value ? t('navigation.account') : t('navigation.login')"
         color="neutral"
         variant="subtle"
         :to="session.token.value ? '/account' : '/login'"
@@ -95,7 +92,7 @@ const items = computed(() => [{ label: 'Каталог задач', to: '/catalo
       />
       <UButton
         v-if="!session.token.value"
-        label="Регистрация"
+        :label="t('navigation.signup')"
         color="neutral"
         to="/signup"
         block

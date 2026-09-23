@@ -1,26 +1,36 @@
 <script setup lang="ts">
 import * as z from 'zod'
 
+const { t } = useAppI18n()
+
 const proposal = defineModel<{ team_id: string, idea: string, plan: string, prototype_url: string }>({ required: true })
 defineProps<{ teamName?: string, pending: boolean, errors?: Record<string, string> }>()
 const emit = defineEmits<{ submit: [] }>()
-const proposalSchema = z.object({ team_id: z.uuid('Введите UUID команды'), idea: z.string().trim().min(1, 'Опишите идею').max(10000), plan: z.string().trim().min(1, 'Опишите план').max(10000), prototype_url: z.union([z.url().refine(value => /^https?:\/\//.test(value), 'Нужна HTTP(S) ссылка'), z.literal('')]) })
+const proposalSchema = computed(() => z.object({
+  team_id: z.uuid(t('validation.team')),
+  idea: z.string({ error: t('validation.required') }).trim().min(1, t('validation.idea')).max(10000, t('validation.max', { max: 10000 })),
+  plan: z.string({ error: t('validation.required') }).trim().min(1, t('validation.plan')).max(10000, t('validation.max', { max: 10000 })),
+  prototype_url: z.string({ error: t('validation.required') }).refine(value => !value || (/^https?:\/\//.test(value) && z.url().safeParse(value).success), t('validation.url'))
+}))
+const proposalForm = useTemplateRef('proposalForm')
+useLocalizedForm(() => proposalForm.value)
 </script>
 
 <template>
-  <UPageCard
-    title="Предложить решение"
+  <AppCard
+    :title="t('proposal.title')"
   >
     <UForm
+      ref="proposalForm"
       :schema="proposalSchema"
       :state="proposal"
       class="space-y-4"
       @submit="emit('submit')"
     >
-      <p>Отклик от команды: {{ teamName }}</p>
+      <p>{{ t('proposal.team', { name: teamName || '' }) }}</p>
       <UFormField
         name="idea"
-        label="Идея"
+        :label="t('proposal.idea')"
         :error="errors?.idea"
       >
         <UTextarea
@@ -30,7 +40,7 @@ const proposalSchema = z.object({ team_id: z.uuid('Введите UUID кома�
       </UFormField>
       <UFormField
         name="plan"
-        label="План реализации"
+        :label="t('proposal.plan')"
         :error="errors?.plan"
       >
         <UTextarea
@@ -40,7 +50,7 @@ const proposalSchema = z.object({ team_id: z.uuid('Введите UUID кома�
       </UFormField>
       <UFormField
         name="prototype_url"
-        label="Ссылка на прототип (необязательно)"
+        :label="t('proposal.prototype')"
         :error="errors?.prototype_url"
       >
         <UInput
@@ -50,9 +60,9 @@ const proposalSchema = z.object({ team_id: z.uuid('Введите UUID кома�
       </UFormField>
       <UButton
         type="submit"
-        label="Отправить отклик"
+        :label="t('proposal.send')"
         :loading="pending"
       />
     </UForm>
-  </UPageCard>
+  </AppCard>
 </template>

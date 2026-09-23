@@ -3,24 +3,30 @@ import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 import type { AccessToken, ApiError, User } from '~/types/api'
 
+const { t } = useAppI18n()
+
 definePageMeta({ layout: 'auth' })
 const api = useApi()
+const { errorMessage } = useApiMessages()
 const route = useRoute()
 const pending = ref(false)
 const error = ref<ApiError | null>(null)
 const role = ref<'business' | 'student'>('student')
 const signup = true
-const fields = [
-  ...(signup ? [{ name: 'username', type: 'text' as const, label: 'Имя пользователя', required: true }] : []),
-  { name: 'email', type: 'email' as const, label: 'Email', required: true },
-  { name: 'password', type: 'password' as const, label: 'Пароль', required: true }
-]
-const schema = z.object({
-  username: signup ? z.string().min(3).max(50).regex(/^[A-Za-z0-9_.-]+$/, 'Латиница, цифры, _, . или -') : z.string().optional(),
-  email: z.email('Введите email'),
-  password: z.string().min(signup ? 8 : 1, signup ? 'Минимум 8 символов' : 'Введите пароль').refine(value => !signup || new TextEncoder().encode(value).length <= 72, 'Не более 72 байт')
-})
-async function onSubmit(payload: FormSubmitEvent<z.output<typeof schema>>) {
+const fields = computed(() => [
+  ...(signup ? [{ name: 'username', type: 'text' as const, label: t('auth.username'), required: true }] : []),
+  { name: 'email', type: 'email' as const, label: t('auth.email'), required: true },
+  { name: 'password', type: 'password' as const, label: t('auth.password'), required: true }
+])
+const schema = computed(() => z.object({
+  username: signup ? z.string({ error: t('validation.required') }).min(3, t('validation.username')).max(50, t('validation.username')).regex(/^[A-Za-z0-9_.-]+$/, t('validation.username')) : z.string({ error: t('validation.required') }).optional(),
+  email: z.email(t('validation.email')),
+  password: z.string({ error: t('validation.required') }).min(signup ? 8 : 1, signup ? t('validation.passwordMin') : t('validation.password')).refine(value => !signup || new TextEncoder().encode(value).length <= 72, t('validation.passwordMax'))
+}))
+const authForm = useTemplateRef('authForm')
+useLocalizedForm(() => authForm.value?.formRef)
+useSeoMeta({ title: () => t(signup ? 'auth.signupTitle' : 'auth.loginTitle') })
+async function onSubmit(payload: FormSubmitEvent<z.output<typeof schema.value>>) {
   pending.value = true
   error.value = null
   try {
@@ -43,28 +49,28 @@ async function onSubmit(payload: FormSubmitEvent<z.output<typeof schema>>) {
     <UAlert
       v-if="error"
       color="error"
-      :title="error.detail"
-      :description="error.code"
+      :title="errorMessage(error)"
     />
     <UFormField
       v-if="signup"
-      label="Ваша роль"
+      :label="t('auth.role')"
     >
       <USelect
         v-model="role"
-        :items="[{ label: 'Бизнес', value: 'business' }, { label: 'Студент / команда', value: 'student' }]"
+        :items="[{ label: t('auth.business'), value: 'business' }, { label: t('auth.student'), value: 'student' }]"
       />
     </UFormField>
     <UAuthForm
+      ref="authForm"
       :fields="fields"
       :schema="schema"
       :loading="pending"
-      :title="signup ? 'Регистрация в AI Sana' : 'Вход в AI Sana'"
-      :submit="{ label: signup ? 'Создать аккаунт' : 'Войти' }"
+      :title="signup ? t('auth.signupTitle') : t('auth.loginTitle')"
+      :submit="{ label: signup ? t('auth.createAccount') : t('navigation.login') }"
       @submit="onSubmit"
     >
       <template #description>
-        <ULink :to="signup ? '/login' : '/signup'">{{ signup ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться' }}</ULink>
+        <ULink :to="signup ? '/login' : '/signup'">{{ signup ? t('auth.existing') : t('auth.newAccount') }}</ULink>
       </template>
     </UAuthForm>
   </div>

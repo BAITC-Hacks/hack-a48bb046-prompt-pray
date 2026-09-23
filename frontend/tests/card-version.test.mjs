@@ -20,7 +20,10 @@ async function page(request) {
   const source = readFileSync(new URL('../app/pages/tasks/[id].vue', import.meta.url), 'utf8')
     .match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const globals = {
-    ref, computed, useApi: () => ({ request, user: ref({ id: 'owner', role: 'business' }) }),
+    computed, useAppI18n: () => ({ t: key => key, n: value => String(value), locale: ref('ru') }),
+    useSeoMeta: () => {}, useTemplateRef: () => ref(null), useLocalizedForm: () => {},
+    useApiMessages: () => ({ errorMessage: () => '', fieldErrors: () => ({}) }),
+    ref, useApi: () => ({ request, user: ref({ id: 'owner', role: 'business' }) }),
     useRoute: () => ({ params: { id: 'task' } })
   }
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor

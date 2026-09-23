@@ -5,17 +5,20 @@ import { test } from 'node:test'
 import ts from 'typescript'
 
 const require = createRequire(import.meta.url)
-const { ref, reactive } = createRequire(require.resolve('nuxt/package.json'))('vue')
+const { ref, reactive, computed } = createRequire(require.resolve('nuxt/package.json'))('vue')
 
 // Execute the real page script with Nuxt navigation and API calls replaced.
-async function page(request, query = {}) {
+async function page(request, query = {}, uiLocale = ref('ru')) {
   const source = readFileSync(new URL('../app/pages/tasks/new.vue', import.meta.url), 'utf8')
     .match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText
   const globals = {
-    ref, reactive, definePageMeta: () => {}, useApi: () => ({ request }),
+    computed, useAppI18n: () => ({ t: key => key, n: value => String(value), locale: uiLocale }),
+    useSeoMeta: () => {}, useTemplateRef: () => ref(null), useLocalizedForm: () => {},
+    useApiMessages: () => ({ errorMessage: () => '', fieldErrors: () => ({}) }),
+    ref, reactive, definePageMeta: () => {}, useApi: () => ({ request, user: ref({ role: 'business' }) }),
     useNuxtApp: () => ({ runWithContext: work => work() }),
     useRoute: () => ({ query }), navigateTo: async () => {}
   }
@@ -68,5 +71,19 @@ for (const locale of ['ru', 'kk', 'en']) {
     assert.equal(form.state.description, 'Бастапқы мәтін')
     assert.equal(form.answers.q, 'Сохранённый ответ')
     assert.equal(form.questions.value[0].question, 'Saved question?')
+  })
+}
+
+for (const locale of ['ru', 'kk', 'en']) {
+  test(`new draft starts in ${locale} and keeps its language when UI changes`, async () => {
+    const uiLocale = ref(locale)
+    const form = await page(async () => {
+      throw new Error('No requests expected')
+    }, {}, uiLocale)
+    assert.equal(form.state.locale, locale)
+    form.state.description = 'Unsaved description'
+    uiLocale.value = locale === 'en' ? 'kk' : 'en'
+    assert.equal(form.state.locale, locale)
+    assert.equal(form.state.description, 'Unsaved description')
   })
 }

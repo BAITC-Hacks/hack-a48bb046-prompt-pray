@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { Proposal } from '~/types/catalog'
 
+const { t, n } = useAppI18n()
+
 const selected = defineModel<string[]>('selected', { required: true })
 const comment = defineModel<string>('comment', { required: true })
 defineProps<{ proposals: Proposal[], pending: boolean, error?: string }>()
@@ -8,37 +10,27 @@ const emit = defineEmits<{ decide: [] }>()
 </script>
 
 <template>
-  <UPageCard
-    title="Отклики команд"
-    description="Выберите одну, несколько или ни одной команды. Решение принимаете только вы."
+  <AppCard
+    :title="t('proposal.responses')"
+    :description="t('proposal.selectionHint')"
   >
     <AppEmptyState
       v-if="!proposals.length"
-      title="Пока нет откликов"
-      description="Команды смогут предложить решение после публикации задачи в каталоге."
+      :title="t('proposal.empty')"
+      :description="t('proposal.emptyDescription')"
       icon="i-lucide-messages-square"
     />
-    <UPageCard
+    <TasksTaskProposalCard
       v-for="(item, index) in proposals"
       :key="item.id"
-      :title="`Отклик команды №${index + 1}`"
-    >
-      <UCheckbox
-        :model-value="selected.includes(item.id)"
-        label="Выбрать эту команду"
-        @update:model-value="value => selected = value ? [...selected, item.id] : selected.filter(id => id !== item.id)"
-      />
-      <p><strong>Идея:</strong> {{ item.idea }}</p>
-      <p><strong>План:</strong> {{ item.plan }}</p>
-      <ULink
-        v-if="item.prototype_url"
-        :to="item.prototype_url"
-        target="_blank"
-        rel="noopener noreferrer"
-      >Открыть прототип</ULink>
-    </UPageCard>
+      :proposal="item"
+      :index="index"
+      :pending="pending"
+      :model-value="selected.includes(item.id)"
+      @update:model-value="value => selected = value ? [...selected, item.id] : selected.filter(id => id !== item.id)"
+    />
     <UFormField
-      label="Комментарий к решению"
+      :label="t('proposal.comment')"
       :error="error"
     >
       <UTextarea
@@ -48,9 +40,9 @@ const emit = defineEmits<{ decide: [] }>()
       />
     </UFormField>
     <UButton
-      :label="selected.length ? `Подтвердить выбор (${selected.length})` : 'Подтвердить: никого не выбирать'"
+      :label="selected.length ? t('proposal.confirm', { count: n(selected.length) }) : t('proposal.confirmNone')"
       :loading="pending"
       @click="emit('decide')"
     />
-  </UPageCard>
+  </AppCard>
 </template>
