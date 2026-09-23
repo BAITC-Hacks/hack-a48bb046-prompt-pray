@@ -1,14 +1,16 @@
 from pydantic import BaseModel, EmailStr, field_validator
+from .user import Username
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    # Keep the existing wire field for clients; it accepts either login identifier.
+    email: EmailStr | Username
     password: str
 
     @field_validator("email")
     @classmethod
     def _normalize_email(cls, value: str) -> str:
-        return value.lower()
+        return value.lower() if '@' in value else value
 
 
 class RefreshRequest(BaseModel):

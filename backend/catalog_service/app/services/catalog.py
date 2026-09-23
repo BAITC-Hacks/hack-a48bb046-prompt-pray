@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.exc import IntegrityError
 
@@ -147,11 +147,20 @@ class CatalogService:
         return await self.save(Proposal(task_id=key, user_id=user.id, **values))
 
     async def decide(self, key, payload, user):
-        own(await self.card(key), user)
+        card = own(await self.card(key), user)
+        # Serialize decisions for this task, including SQLite writers.
+        await self.repo.lock_draft(card.draft_id)
         proposals = {p.id: p for p in await self.repo.proposals(key)}
         if any(key not in proposals for key in payload.selected_proposal_ids):
             raise BadRequestError("Selected proposals must belong to this task")
+        previous = await self.repo.latest_decision_time(key)
+        created_at = datetime.now(timezone.utc)
+        if previous is not None:
+            # SQLite returns naive datetimes; all persisted timestamps are UTC.
+            previous = previous.replace(tzinfo=timezone.utc) if previous.tzinfo is None else previous
+            created_at = max(created_at, previous + timedelta(microseconds=1))
         decision = SelectionDecision(task_id=key, business_id=user.id, comment=payload.comment,
+            created_at=created_at,
             selected_proposals=[proposals[key] for key in payload.selected_proposal_ids])
         await self.save(decision)
         await self.session.refresh(decision, ['selected_proposals'])

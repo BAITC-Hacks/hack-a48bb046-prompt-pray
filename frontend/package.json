@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "test:auth": "node tests/auth.integration.mjs",
+    "test:proxy": "node --test tests/client-ip.test.mjs",
     "test:catalog": "node tests/catalog.integration.mjs"
   },
   "dependencies": {

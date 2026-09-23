@@ -26,6 +26,23 @@ The catalog accepts `limit` (1–200, default 50) and `offset` (default 0), sort
 descending rating, then publication time, then task ID for stable pagination.
 There is no minimum score for publication or proposals.
 
+Every non-null `TaskCardRead.rating` includes the seven component scores, `total`
+(0–100), and a stable, language-independent `readiness_code`:
+
+| Total | `readiness_code` | Legacy `readiness` |
+|---|---|---|
+| 0–39 | `draft` | `черновик` |
+| 40–69 | `working` | `рабочая` |
+| 70–89 | `ready` | `готовая` |
+| 90–100 | `priority` | `приоритетная` |
+
+These fields appear in card responses and cards nested in catalog entries.
+`readiness` retains its existing Russian values for older clients. New clients
+should use `readiness_code` as the translation key; locale dictionary integration
+follows in T-20 after the i18n infrastructure in T-19. Both fields are computed
+from the same total and cannot be supplied in create/update requests. Component
+weights remain 20/20/15/15/10/10/10; no database migration is needed.
+
 Draft responses include `card_id` (null until assembly). The business account uses
 it to resume either the saved draft or its existing card, including unpublished cards.
 

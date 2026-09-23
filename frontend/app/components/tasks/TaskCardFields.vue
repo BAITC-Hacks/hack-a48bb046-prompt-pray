@@ -25,7 +25,7 @@ defineProps<{ errors?: Record<string, string> }>()
   >
     <UTextarea
       v-model="model[field.key]"
-      :maxlength="10000"
+      :maxlength="102007"
       class="w-full"
       :rows="3"
     />

@@ -73,6 +73,7 @@ async def test_tables_relationships_and_serialization(db):
         assert result.task.context is None
         assert result.task.rating.total == 20
         assert result.task.rating.readiness == "черновик"
+        assert result.model_dump()["task"]["rating"]["readiness_code"] == "draft"
         stored = (await session.scalars(select(SelectionDecision).options(
             selectinload(SelectionDecision.selected_proposals)
         ))).all()
@@ -116,11 +117,13 @@ async def test_service_startup_creates_domain_tables(monkeypatch):
         assert {"task_drafts", "task_cards", "selection_decisions"} <= set(tables)
 
 
-@pytest.mark.parametrize("score,level", [
-    (0, "черновик"), (39, "черновик"), (40, "рабочая"), (69, "рабочая"),
-    (70, "готовая"), (89, "готовая"), (90, "приоритетная"), (100, "приоритетная"),
+@pytest.mark.parametrize("score,level,code", [
+    (0, "черновик", "draft"), (39, "черновик", "draft"),
+    (40, "рабочая", "working"), (69, "рабочая", "working"),
+    (70, "готовая", "ready"), (89, "готовая", "ready"),
+    (90, "приоритетная", "priority"), (100, "приоритетная", "priority"),
 ])
-def test_rating_boundaries(score, level):
+def test_rating_boundaries(score, level, code):
     remaining = score
     values = {}
     for field, maximum in zip(RatingBreakdownRead.model_fields, [20, 20, 15, 15, 10, 10, 10]):
@@ -129,6 +132,7 @@ def test_rating_boundaries(score, level):
     rating = RatingBreakdownRead(**values)
     assert rating.model_dump()["total"] == score
     assert rating.model_dump()["readiness"] == level
+    assert rating.model_dump(mode="json")["readiness_code"] == code
     with pytest.raises(ValidationError):
         RatingBreakdownRead(**{**values, "users": 11})
 

@@ -9,6 +9,7 @@ export function useSession() {
   const token = useState<string | null>('access-token', () => null)
   const user = useState<User | null>('current-user', () => null)
   const requestHeaders = useRequestHeaders(['cookie'])
+  const requestEvent = import.meta.server ? useRequestEvent() : undefined
   const responseCookies = import.meta.server ? useResponseHeader('set-cookie') : undefined
 
   function clear() {
@@ -19,7 +20,8 @@ export function useSession() {
   async function request<T>(action: string, body?: LoginInput | RegisterInput) {
     try {
       const response = await $fetch.raw<T>(`/api/session/${action}`, {
-        method: 'POST', body, headers: { ...requestHeaders, 'X-Requested-With': 'AI-Sana' }, retry: 0
+        method: 'POST', body, headers: { ...requestHeaders, 'X-Requested-With': 'AI-Sana' }, retry: 0,
+        ...(requestEvent ? { context: requestEvent.context } : {})
       })
       if (responseCookies) responseCookies.value = response.headers.getSetCookie()
       return response._data as T

@@ -12,11 +12,13 @@ const schema = z.object({ description: z.string().trim().min(1, 'Опишите 
 const draft = ref<Draft | null>(null)
 const questions = ref<Question[]>([])
 const pending = ref(false)
+const generatingQuestions = ref(false)
 const error = ref<ApiError | null>(null)
 const answers = reactive<Record<string, string>>({})
 const answerErrors = reactive<Record<string, string>>({})
 
 async function action(work: () => Promise<void>) {
+  if (pending.value) return
   pending.value = true
   error.value = null
   try {
@@ -28,8 +30,13 @@ async function action(work: () => Promise<void>) {
   }
 }
 async function loadQuestions() {
-  questions.value = await api.request<Question[]>(`/catalog/drafts/${draft.value!.id}/questions`, { method: 'POST' })
-  for (const question of questions.value) answers[question.id] = question.answer || ''
+  generatingQuestions.value = true
+  try {
+    questions.value = await api.request<Question[]>(`/catalog/drafts/${draft.value!.id}/questions`, { method: 'POST' })
+    for (const question of questions.value) answers[question.id] = question.answer || ''
+  } finally {
+    generatingQuestions.value = false
+  }
 }
 async function createDraft() {
   await action(async () => {
@@ -93,6 +100,13 @@ if (typeof route.query.draft === 'string') {
       title="Создание задач доступно бизнесу"
     />
     <template v-else>
+      <UAlert
+        v-if="generatingQuestions"
+        title="Готовим уточняющие вопросы"
+        description="Это может занять около минуты. Черновик уже сохранён — к нему можно вернуться из кабинета."
+        icon="i-lucide-loader-circle"
+        role="status"
+      />
       <UAlert
         v-if="error"
         color="error"

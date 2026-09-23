@@ -61,3 +61,8 @@ class CatalogRepository:
             SelectionDecision.task_id == task_id
         ).options(selectinload(SelectionDecision.selected_proposals))
             .order_by(SelectionDecision.created_at.desc(), SelectionDecision.id))).all()
+
+    async def latest_decision_time(self, task_id):
+        return await self.session.scalar(select(func.max(SelectionDecision.created_at)).where(
+            SelectionDecision.task_id == task_id
+        ))

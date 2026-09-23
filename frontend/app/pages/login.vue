@@ -12,12 +12,12 @@ const role = ref<'business' | 'student'>('student')
 const signup = false
 const fields = [
   ...(signup ? [{ name: 'username', type: 'text' as const, label: 'Имя пользователя', required: true }] : []),
-  { name: 'email', type: 'email' as const, label: 'Email', required: true },
+  { name: 'email', type: 'text' as const, label: 'Email или имя пользователя', required: true },
   { name: 'password', type: 'password' as const, label: 'Пароль', required: true }
 ]
 const schema = z.object({
   username: signup ? z.string().min(3).max(50).regex(/^[A-Za-z0-9_.-]+$/, 'Латиница, цифры, _, . или -') : z.string().optional(),
-  email: z.email('Введите email'),
+  email: z.string().trim().min(1, 'Введите email или имя пользователя'),
   password: z.string().min(signup ? 8 : 1, signup ? 'Минимум 8 символов' : 'Введите пароль').refine(value => !signup || new TextEncoder().encode(value).length <= 72, 'Не более 72 байт')
 })
 async function onSubmit(payload: FormSubmitEvent<z.output<typeof schema>>) {

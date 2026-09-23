@@ -6,10 +6,10 @@ useSeoMeta({ title: 'Каталог бизнес-задач — AI Sana' })
 const api = useApi()
 const page = ref(1)
 const limit = 12
-const { data: result, error, status, refresh } = await useAsyncData(
+const { data: result, error, status, refresh } = useLazyAsyncData(
   'business-task-catalog',
   () => api.request<CatalogPage>('/catalog', { query: { limit, offset: (page.value - 1) * limit } }),
-  { watch: [page] }
+  { watch: [page], server: false }
 )
 const pending = computed(() => status.value === 'pending')
 const errorMessage = computed(() => (error.value as unknown as ApiError | null)?.detail || 'Не удалось загрузить задачи. Попробуйте ещё раз.')

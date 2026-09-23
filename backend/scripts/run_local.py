@@ -238,6 +238,8 @@ def pump_output(tag: str, proc: subprocess.Popen, color: bool) -> None:
 def spawn(service: Service, port: int, host: str, env: dict[str, str], reload: bool,
           color: bool) -> subprocess.Popen:
     cmd = [sys.executable, "-m", "uvicorn", "app.main:app", "--host", host, "--port", str(port), "--no-access-log"]
+    if service == GATEWAY:
+        cmd.append("--no-proxy-headers")  # Rate limiter validates the actual proxy peer itself.
     if color:
         cmd.append("--use-colors")
     if reload:
@@ -278,6 +280,7 @@ def main() -> None:
     parser.add_argument("--db", choices=("sqlite", "postgres"),
                         help="хранилище (по умолчанию DB_BACKEND из .env, иначе sqlite)")
     parser.add_argument("--no-reload", action="store_true", help="без автоперезапуска при изменении кода")
+    parser.add_argument("--no-demo", action="store_true", help="не создавать локальные демоданные")
     parser.add_argument("--host", default="127.0.0.1", help="адрес привязки (по умолчанию только localhost)")
     parser.add_argument("--reset-db", action="store_true", help="удалить файлы SQLite в data/ перед стартом")
     args = parser.parse_args()
@@ -331,6 +334,13 @@ def main() -> None:
         gateway_port = ports[GATEWAY.directory]
         if not wait_until_healthy(f"http://127.0.0.1:{gateway_port}/health", procs, timeout=90):
             fail("сервисы не стали готовыми за 90 секунд (см. логи выше)")
+
+        if not args.no_demo and config.get('ENV', 'development').lower() == 'development':
+            from seed_demo import seed_demo
+            try:
+                seed_demo(f"http://127.0.0.1:{gateway_port}")
+            except Exception as error:
+                print(f"Не удалось подготовить демоданные: {error}", file=sys.stderr)
 
         db_note = ("SQLite, файлы в data/" if backend == "sqlite"
                    else f"PostgreSQL localhost:{config.get('POSTGRES_PORT') or 5432}")

@@ -26,6 +26,7 @@ def create_app(
     rate_limit_per_minute: Optional[int] = None,
     rate_limit_per_hour: int = 1000,
     trust_proxy_headers: bool = False,
+    trusted_proxy_ips: Sequence[str] = (),
 ) -> FastAPI:
     """
     Создаёт приложение с логированием, обработчиками ошибок, middleware и health-эндпоинтами.
@@ -57,6 +58,7 @@ def create_app(
             requests_per_minute=rate_limit_per_minute,
             requests_per_hour=rate_limit_per_hour,
             trust_proxy_headers=trust_proxy_headers,
+            trusted_proxy_ips=trusted_proxy_ips,
         )
     app.add_middleware(SecurityHeadersMiddleware, hsts=settings.is_production)
     if cors_origins:

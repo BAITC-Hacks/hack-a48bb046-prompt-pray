@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const colorMode = useColorMode()
+const pendingRequests = useState('api-pending-requests', () => 0)
 const themeColor = computed(() => colorMode.value === 'dark' ? '#020618' : '#ffffff')
 
 useHead({
@@ -25,6 +26,18 @@ provide('navigation', navigation)
 <template>
   <UApp>
     <NuxtLoadingIndicator />
+    <div
+      v-if="pendingRequests > 0"
+      role="status"
+      aria-live="polite"
+      class="pointer-events-none fixed right-4 bottom-4 z-50 flex items-center gap-2 rounded-lg border border-default bg-default px-4 py-3 text-sm shadow-lg"
+    >
+      <UIcon
+        name="i-lucide-loader-circle"
+        class="size-4 animate-spin"
+      />
+      Выполняем запрос…
+    </div>
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>

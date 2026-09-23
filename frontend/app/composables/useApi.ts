@@ -5,6 +5,7 @@ export function useApi() {
   const config = useRuntimeConfig()
   const fetcher = useRequestFetch()
   const { token, user, refresh } = session
+  const pendingRequests = useState('api-pending-requests', () => 0)
 
   async function request<T>(path: string, options: {
     method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
@@ -16,6 +17,7 @@ export function useApi() {
     }
     const initialToken = token.value
     const auth = path.startsWith('/auth/')
+    pendingRequests.value++
     try {
       if (path === '/auth/logout') {
         await session.logout()
@@ -25,6 +27,7 @@ export function useApi() {
         baseURL: auth ? '/api/session' : config.public.apiBase,
         ...options,
         retry: 0,
+        timeout: path.endsWith('/questions') && options.method === 'POST' ? 90000 : 20000,
         headers: auth ? { 'X-Requested-With': 'AI-Sana' } : token.value ? { Authorization: `Bearer ${token.value}` } : undefined
       }) as T
     } catch (cause) {
@@ -40,6 +43,8 @@ export function useApi() {
       }
       if (response.statusCode === 401 && !auth) session.clear()
       throw normalize(response)
+    } finally {
+      pendingRequests.value--
     }
   }
 
@@ -53,5 +58,5 @@ export function useApi() {
     return Object.assign(new Error(detail), { detail, code: data?.code || (response.statusCode === 422 ? 'validation_error' : 'request_failed'), status: response.statusCode || 0, fields })
   }
 
-  return { request, refresh, token, user }
+  return { request, refresh, token, user, pendingRequests }
 }
