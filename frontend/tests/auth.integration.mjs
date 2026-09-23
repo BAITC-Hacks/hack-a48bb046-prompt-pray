@@ -42,7 +42,7 @@ assert.equal((await fetch(`${base}/api/session/logout`, { method: 'POST', header
 const logout = await call('logout', {}, cookie)
 assert.match(logout.headers.get('set-cookie'), /Max-Age=0/i)
 assert.equal((await call('refresh', {})).status, 401)
-assert.equal((await call('refresh', {}, 'ai_sana_refresh=invalid')).status, 401)
+assert.equal((await call('refresh', {}, 'ai-sana-refresh=invalid')).status, 401)
 console.log('PASS: real registration/login/errors, HttpOnly refresh, SSR session restore, guest redirect, CSRF guard, logout')
 
 // Exercise the actual composables outside Nuxt, supplying only its app-scoped primitives.
@@ -73,12 +73,12 @@ const sessionFetch = $fetch.create({
 })
 const { useSession } = load('../app/composables/useSession.ts', {}, {
   useNuxtApp: () => app,
-  useState: key => key === 'auth:user' ? user : token,
+  useState: key => key === 'current-user' ? user : token,
   useRequestHeaders: () => ({}),
   $fetch: sessionFetch,
   normalizeApiError: errors.normalizeApiError
 })
-const { useApi } = load('../app/composables/useApi.ts', { '../utils/api-error': errors }, {
+const { useSessionApi: useApi } = load('../app/composables/useSessionApi.ts', { '../utils/api-error': errors }, {
   useRuntimeConfig: () => ({ public: { apiBase: gateway } }), useSession, $fetch
 })
 await useSession().login(input)
@@ -93,7 +93,7 @@ assert.equal(refreshCount, 1, 'Concurrent 401 responses share a single refresh')
 assert.notEqual(token.value.split('.')[1], unsigned.split('.')[1])
 
 let attempts = 0
-const { useApi: useRejectingApi } = load('../app/composables/useApi.ts', { '../utils/api-error': errors }, {
+const { useSessionApi: useRejectingApi } = load('../app/composables/useSessionApi.ts', { '../utils/api-error': errors }, {
   useRuntimeConfig: () => ({ public: { apiBase: gateway } }), useSession,
   $fetch: { create: () => async () => {
     attempts++

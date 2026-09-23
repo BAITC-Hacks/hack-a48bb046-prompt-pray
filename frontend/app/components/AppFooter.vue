@@ -9,7 +9,10 @@ const columns = [{
 </script>
 
 <template>
-  <USeparator icon="i-lucide-sparkles" class="h-px" />
+  <USeparator
+    icon="i-lucide-sparkles"
+    class="h-px"
+  />
   <UFooter :ui="{ top: 'border-b border-default' }">
     <template #top>
       <UContainer class="py-3">
@@ -30,7 +33,10 @@ const columns = [{
       </p>
     </template>
     <template #right>
-      <ULink to="/catalog" class="text-sm text-muted hover:text-default">Каталог задач</ULink>
+      <ULink
+        to="/catalog"
+        class="text-sm text-muted hover:text-default"
+      >Каталог задач</ULink>
     </template>
   </UFooter>
 </template>

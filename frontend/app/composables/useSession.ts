@@ -5,8 +5,8 @@ const refreshes = new WeakMap<object, Promise<void>>()
 
 export function useSession() {
   const app = useNuxtApp()
-  const token = useState<string | null>('auth:access-token', () => null)
-  const user = useState<AuthUser | null>('auth:user', () => null)
+  const token = useState<string | null>('access-token', () => null)
+  const user = useState<AuthUser | null>('current-user', () => null)
   const requestHeaders = useRequestHeaders(['cookie'])
   const responseCookies = import.meta.server ? useResponseHeader('set-cookie') : undefined
 

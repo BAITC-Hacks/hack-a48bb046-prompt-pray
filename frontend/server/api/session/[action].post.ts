@@ -1,6 +1,6 @@
 import type { AccessSession, AuthUser } from '../../../shared/types/auth'
 
-const cookieName = 'ai_sana_refresh'
+const cookieName = 'ai-sana-refresh'
 const cookieOptions = {
   httpOnly: true,
   secure: !import.meta.dev,
@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
   const body = action === 'refresh' ? { refresh_token: refreshToken } : await readBody(event)
   try {
     const gateway = $fetch.create({
-      baseURL: useRuntimeConfig(event).public.apiBase,
+      baseURL: useRuntimeConfig(event).gatewayUrl + '/api/v1',
       method: 'POST',
       retry: 0,
       timeout: 15000

@@ -43,7 +43,8 @@ const items = computed(() => [{ label: 'Каталог задач', to: '/catalo
       <UContentSearchButton class="lg:hidden" />
 
       <UButton
-        icon="i-lucide-log-in" aria-label="Вход в аккаунт"
+        icon="i-lucide-log-in"
+        aria-label="Вход в аккаунт"
         color="neutral"
         variant="ghost"
         :to="session.token.value ? '/account' : '/login'"
