@@ -4,6 +4,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from common.auth import UserRole
+
 from ..core.security import MAX_PASSWORD_BYTES
 
 Username = Annotated[str, Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_.-]+$")]
@@ -13,6 +15,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     username: Username
     password: str = Field(min_length=8)
+    role: UserRole = UserRole.BUSINESS
 
     @field_validator("email")
     @classmethod
@@ -39,4 +42,5 @@ class UserRead(BaseModel):
     username: str
     is_active: bool
     is_admin: bool
+    role: UserRole
     created_at: datetime

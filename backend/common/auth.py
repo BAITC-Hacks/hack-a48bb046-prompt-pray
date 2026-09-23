@@ -6,6 +6,7 @@ JWT: выпуск и проверка токенов, зависимости Fas
 """
 import uuid
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from typing import Any, Awaitable, Callable, Optional
 
 import jwt
@@ -18,6 +19,13 @@ from common.exceptions import ForbiddenError, UnauthorizedError
 ACCESS_TOKEN = "access"
 REFRESH_TOKEN = "refresh"
 
+
+class UserRole(str, Enum):
+    """Роли, передаваемые auth_service в access-токене."""
+
+    BUSINESS = "business"
+    STUDENT = "student"
+
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -27,6 +35,7 @@ class TokenUser(BaseModel):
     id: uuid.UUID
     email: Optional[str] = None
     is_admin: bool = False
+    role: Optional[UserRole] = None
 
 
 def create_token(
@@ -80,7 +89,12 @@ def token_user_dependency(settings) -> Callable[..., Awaitable[TokenUser]]:
             algorithm=settings.JWT_ALGORITHM,
         )
         try:
-            return TokenUser(id=payload["sub"], email=payload.get("email"), is_admin=bool(payload.get("is_admin")))
+            return TokenUser(
+                id=payload["sub"],
+                email=payload.get("email"),
+                is_admin=bool(payload.get("is_admin")),
+                role=payload.get("role"),
+            )
         except ValueError:
             raise UnauthorizedError("Invalid token subject", code="invalid_token")
 

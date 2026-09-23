@@ -1,3 +1,5 @@
+from common.auth import decode_token
+
 API = "/api/v1"
 USER = {"email": "Alice@Example.com", "username": "alice", "password": "s3cret-pass"}
 
@@ -13,12 +15,51 @@ async def register_and_login(client):
 async def test_register_login_me(client):
     tokens = await register_and_login(client)
 
+    claims = decode_token(
+        tokens["access_token"],
+        secret="test-secret-key-test-secret-key-1234",
+    )
+    assert claims["role"] == "business"
+
     resp = await client.get(f"{API}/users/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
     assert resp.status_code == 200
     body = resp.json()
     assert body["email"] == "alice@example.com"  # email нормализуется
     assert body["is_admin"] is False
+    assert body["role"] == "business"
     assert "hashed_password" not in body
+
+
+async def test_student_role_is_stored_returned_and_added_to_access_token(client):
+    user = {**USER, "email": "student@example.com", "username": "student", "role": "student"}
+    resp = await client.post(f"{API}/auth/register", json=user)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["role"] == "student"
+
+    resp = await client.post(
+        f"{API}/auth/login",
+        json={"email": user["email"], "password": user["password"]},
+    )
+    assert resp.status_code == 200, resp.text
+    tokens = resp.json()
+    claims = decode_token(
+        tokens["access_token"],
+        secret="test-secret-key-test-secret-key-1234",
+    )
+    assert claims["role"] == "student"
+
+    resp = await client.get(
+        f"{API}/users/me",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["role"] == "student"
+
+
+async def test_registration_rejects_unknown_role(client):
+    user = {**USER, "role": "admin"}
+    resp = await client.post(f"{API}/auth/register", json=user)
+    assert resp.status_code == 422
 
 
 async def test_duplicate_registration_conflicts(client):
