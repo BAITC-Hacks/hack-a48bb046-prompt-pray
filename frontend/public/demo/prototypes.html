@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Учебные макеты команд — AI Sana</title>
+<style>
+  body { max-width: 880px; margin: auto; padding: 32px 20px; font: 17px/1.6 system-ui, sans-serif; background: #f3f6fa; color: #18263d; }
+  section { background: white; border: 1px solid #ccd6e2; border-radius: 16px; padding: 24px; margin: 24px 0; scroll-margin-top: 20px; }
+  section:target { border: 3px solid #2563eb; }
+  a { color: #174bbd; } table { width: 100%; border-collapse: collapse; } th, td { padding: 10px; text-align: left; border-bottom: 1px solid #dae1eb; }
+  .note { background: #fff3cd; padding: 16px; border-radius: 12px; } .metric { font-size: 32px; font-weight: 700; }
+</style>
+<header>
+  <a href="/catalog">← Каталог задач</a>
+  <h1>Пять учебных макетов команд</h1>
+  <p class="note">Все команды, показатели и примеры вымышлены. Это статические макеты для демонстрации откликов: здесь нет загрузки данных, работающей аналитики или AI-генерации.</p>
+  <nav aria-label="Макеты"><a href="#coffee-dashboard">Data Qadam</a> · <a href="#coffee-report">Insight Lab</a> · <a href="#workshop-board">Qolay Service</a> · <a href="#reviews-topics">Til Analytics</a> · <a href="#recycling-directory">Green Route</a></nav>
+</header>
+<main>
+  <section id="coffee-dashboard">
+    <h2>Data Qadam · Продажи кофейни</h2>
+    <p>Пример экрана за три дня. Период в этом макете фиксирован.</p>
+    <p class="metric">145 000 ₸</p>
+    <table><caption>Учебная выручка</caption><thead><tr><th>День</th><th>Выручка</th></tr></thead><tbody><tr><td>Понедельник</td><td>45 000 ₸</td></tr><tr><td>Вторник</td><td>52 000 ₸</td></tr><tr><td>Среда</td><td>48 000 ₸</td></tr></tbody></table>
+    <p>Проверка: 45 000 + 52 000 + 48 000 = 145 000 ₸. Планируемый срок: 7 дней после согласования старта.</p>
+  </section>
+  <section id="coffee-report">
+    <h2>Insight Lab · Отчёт управляющего</h2>
+    <p class="metric">+15,6% во вторник</p>
+    <p>Учебное сравнение: 52 000 ₸ против 45 000 ₸ в понедельник. В среду — 48 000 ₸, изменение к вторнику −7,7%.</p>
+    <p>Вопрос для обсуждения: какие события могли повлиять на выручку? Причины по этим трём значениям не определены.</p>
+    <p>Планируемый срок: 10 дней после согласования старта.</p>
+  </section>
+  <section id="workshop-board">
+    <h2>Qolay Service · Заявки мастерской</h2>
+    <p>Вариант списка для обсуждения с оператором. Статусы пока предложены командой.</p>
+    <table><caption>Вымышленные заявки</caption><thead><tr><th>Номер</th><th>Работа</th><th>Статус</th></tr></thead><tbody><tr><td>001</td><td>Диагностика чайника</td><td>Новая</td></tr><tr><td>002</td><td>Ремонт лампы</td><td>В работе</td></tr><tr><td>003</td><td>Замена кабеля</td><td>Готова</td></tr><tr><td>004</td><td>Диагностика утюга</td><td>Новая</td></tr><tr><td>005</td><td>Ремонт вентилятора</td><td>В работе</td></tr></tbody></table>
+    <p>Поиск и смена статуса запланированы для прототипа. Срок: 12 дней после согласования старта.</p>
+  </section>
+  <section id="reviews-topics">
+    <h2>Til Analytics · Темы отзывов</h2>
+    <p>Ручная разметка трёх вымышленных фраз для обсуждения; это не результат работы модели.</p>
+    <table><caption>Учебная разметка</caption><thead><tr><th>Пример</th><th>Предлагаемая тема</th></tr></thead><tbody><tr><td>Долго ждал заказ</td><td>Скорость обслуживания</td></tr><tr><td>Не нашёл нужный размер</td><td>Ассортимент</td></tr><tr><td>Помогли выбрать подарок</td><td>Консультация</td></tr></tbody></table>
+    <p>До начала работы нужны источник данных, пользователи и критерии успеха. Предварительный срок: 14 дней после получения согласованной выборки.</p>
+  </section>
+  <section id="recycling-directory">
+    <h2>Green Route · Приём вторсырья</h2>
+    <p>Вымышленные пункты. Для реальной поездки этот справочник использовать нельзя.</p>
+    <table><caption>Учебный справочник</caption><thead><tr><th>Пункт</th><th>Принимает</th><th>Время</th></tr></thead><tbody><tr><td>Север</td><td>Бумага</td><td>09:00–18:00</td></tr><tr><td>Центр</td><td>Пластик</td><td>10:00–19:00</td></tr><tr><td>Юг</td><td>Бумага, пластик</td><td>09:00–17:00</td></tr></tbody></table>
+    <p>Ожидаемые результаты будущего фильтра: бумага — Север и Юг; пластик — Центр и Юг. Срок: 8 дней после согласования старта.</p>
+  </section>
+</main>
+</html>
