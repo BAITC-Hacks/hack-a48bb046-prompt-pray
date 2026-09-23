@@ -3,20 +3,21 @@
     "id": "team-1",
     "leader": "Riffaells",
     "members": [
-      "Riffaells",
-      "Улан"
+      "Riffaells"
     ]
   },
   {
     "id": "team-2",
-    "leader": "Ермухан",
+    "leader": "Улан",
     "members": [
-      "Ермухан"
+      "Улан"
     ]
   },
   {
     "id": "team-3",
-    "leader": "",
-    "members": []
+    "leader": "Ермухан",
+    "members": [
+      "Ермухан"
+    ]
   }
 ]
