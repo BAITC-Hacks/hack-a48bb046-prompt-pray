@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { cardFields } from '~/types/catalog'
 
+const { t } = useAppI18n()
+
 const model = defineModel<Record<string, string>>({ required: true })
 defineProps<{ errors?: Record<string, string> }>()
 </script>
@@ -8,7 +10,7 @@ defineProps<{ errors?: Record<string, string> }>()
 <template>
   <UFormField
     name="title"
-    label="Название"
+    :label="t('fields.title')"
     :error="errors?.title"
   >
     <UInput
@@ -20,7 +22,7 @@ defineProps<{ errors?: Record<string, string> }>()
     v-for="field in cardFields"
     :key="field.key"
     :name="field.key"
-    :label="field.label"
+    :label="t(`fields.${field.key}`)"
     :error="errors?.[field.key]"
   >
     <UTextarea

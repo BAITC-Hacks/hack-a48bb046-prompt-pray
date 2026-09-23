@@ -15,7 +15,7 @@ export type Card = Record<CardField, string | null> & {
   title: string
   business_id: string
   confirmed_at: string | null
-  rating: (Record<CardField, number> & { total: number, readiness: string }) | null
+  rating: (Record<CardField, number> & { total: number, readiness: string, readiness_code?: 'draft' | 'working' | 'ready' | 'priority' }) | null
 }
 export interface CatalogEntry { task_id: string, task: Card, published_at: string }
 export interface CatalogPage { items: CatalogEntry[], total: number, limit: number, offset: number }

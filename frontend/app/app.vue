@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import { ru, kk, en } from '@nuxt/ui/locale'
+import { normalizeLocale } from '~/i18n/config'
+
+const { locale } = useAppI18n()
+const uiLocale = computed(() => ({ ru, kk, en })[normalizeLocale(locale.value)])
 const colorMode = useColorMode()
 const themeColor = computed(() => colorMode.value === 'dark' ? '#020618' : '#ffffff')
 
@@ -9,7 +14,7 @@ useHead({
     { key: 'theme-color', name: 'theme-color', content: themeColor }
   ],
   link: [{ rel: 'icon', href: '/favicon.ico' }],
-  htmlAttrs: { lang: 'ru' }
+  htmlAttrs: { lang: locale }
 })
 useSeoMeta({
   titleTemplate: '%s — AI Sana',
@@ -23,7 +28,7 @@ provide('navigation', navigation)
 </script>
 
 <template>
-  <UApp>
+  <UApp :locale="uiLocale">
     <NuxtLoadingIndicator />
     <NuxtLayout>
       <NuxtPage />

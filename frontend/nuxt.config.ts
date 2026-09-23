@@ -26,6 +26,7 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    '/': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
     '/catalog': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
     '/account': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
     '/tasks/**': { prerender: false, headers: { 'cache-control': 'private, no-store' } },
@@ -39,10 +40,9 @@ export default defineNuxtConfig({
 
   nitro: {
     prerender: {
-      routes: [
-        '/'
-      ],
-      crawlLinks: true
+      // HTML depends on the language cookie, including the landing page.
+      routes: [],
+      crawlLinks: false
     }
   },
 

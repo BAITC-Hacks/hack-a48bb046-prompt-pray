@@ -1,16 +1,17 @@
 <script setup lang="ts">
+const { t } = useAppI18n()
 defineProps<{ step: number }>()
-const steps = ['Описание', 'Уточнение', 'Проверка и публикация']
+const steps = computed(() => [t('workflow.describe'), t('workflow.clarify'), t('workflow.publish')])
 </script>
 
 <template>
   <ol
-    aria-label="Этапы создания задачи"
+    :aria-label="t('workflow.label')"
     class="grid grid-cols-3 gap-3"
   >
     <li
       v-for="(label, index) in steps"
-      :key="label"
+      :key="index"
       :aria-current="step === index + 1 ? 'step' : undefined"
       class="border-t-2 pt-3 text-sm"
       :class="index + 1 <= step ? 'border-primary text-primary' : 'border-default text-muted'"

@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
     "test:auth": "node tests/auth.integration.mjs",
-    "test:catalog": "node tests/catalog.integration.mjs"
+    "test:catalog": "node tests/catalog.integration.mjs",
+    "test:i18n": "node tests/i18n.test.mjs && node --test tests/auth-language.test.mjs",
+    "test:i18n:ssr": "node tests/i18n.integration.mjs"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.131",
@@ -25,6 +27,7 @@
     "nuxt-og-image": "^6.7.8",
     "tailwindcss": "^4.3.3",
     "ufo": "^1.6.4",
+    "vue-i18n": "^11.4.12",
     "zod": "^4.6.4"
   },
   "devDependencies": {
