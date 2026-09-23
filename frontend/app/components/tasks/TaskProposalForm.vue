@@ -34,6 +34,7 @@ useLocalizedForm(() => proposalForm.value)
         :error="errors?.idea"
       >
         <UTextarea
+          id="proposal-idea"
           v-model="proposal.idea"
           class="w-full"
         />
@@ -44,6 +45,7 @@ useLocalizedForm(() => proposalForm.value)
         :error="errors?.plan"
       >
         <UTextarea
+          id="proposal-plan"
           v-model="proposal.plan"
           class="w-full"
         />
@@ -54,6 +56,7 @@ useLocalizedForm(() => proposalForm.value)
         :error="errors?.prototype_url"
       >
         <UInput
+          id="proposal-prototype"
           v-model="proposal.prototype_url"
           class="w-full"
         />

@@ -4,6 +4,7 @@ export default {
   ...product,
   language: { label: 'Интерфейс тілі' },
   navigation: {
+    requestPending: 'Сұрау орындалуда…',
     catalog: 'Тапсырмалар каталогы',
     workflow: 'Бұл қалай жұмыс істейді',
     pilot: 'AI Sana пилоттық жобасы',

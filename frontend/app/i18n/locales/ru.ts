@@ -4,6 +4,7 @@ export default {
   ...product,
   language: { label: 'Язык интерфейса' },
   navigation: {
+    requestPending: 'Выполняем запрос…',
     catalog: 'Каталог задач',
     workflow: 'Как это работает',
     pilot: 'Пилот AI Sana',
